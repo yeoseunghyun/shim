@@ -109,6 +109,8 @@ typedef struct {
 	UINT8 *Mok;
 } MokListNode;
 
+static int grub_hash_flag = 0;
+
 /*
  * Perform basic bounds checking of the intra-image pointers
  */
@@ -931,9 +933,18 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	}
 
 	status = generate_hash(data, datasize, context, sha256hash, sha1hash);
-
 	if (status != EFI_SUCCESS)
 		return status;
+
+	/* Measure the grub binary into the TPM */
+	UINTN strsize 	= sizeof("Second stage bootloader-grub");
+	status = tpm_log_event(sha1hash, strsize, 8+grub_hash_flag, (const CHAR8 *)"Second stage bootloader");
+	if (status != EFI_SUCCESS) {
+		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
+		return status;
+	}
+	grub_hash_flag++;
+	if (grub_hash_flag > 1) grub_hash_flag = 1;
 
 	/*
 	 * Check that the MOK database hasn't been modified
@@ -1585,6 +1596,16 @@ static EFI_STATUS shim_hash (char *data, int datasize,
 
 	in_protocol = 1;
 	status = generate_hash(data, datasize, context, sha256hash, sha1hash);
+
+	/* Measure the shim binary into the TPM */
+/*
+	console_notify(L"shim_hash");
+	UINTN strsize 	= sizeof("First stage bootloader-shim");
+	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8*)"First stage bootloader-shim");
+	console_notify(L"tpm_log_event_First stage bootloader");
+	if (status != EFI_SUCCESS)
+		return status;
+*/
 	in_protocol = 0;
 
 	return status;
@@ -1664,10 +1685,6 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 		}
 	}
 
-	/* Measure the binary into the TPM */
-	tpm_log_event((EFI_PHYSICAL_ADDRESS)data, datasize, 9,
-		      (CHAR8 *)"Second stage bootloader");
-
 	/*
 	 * We need to modify the loaded image protocol entry before running
 	 * the new binary, so back it up
@@ -1746,13 +1763,19 @@ EFI_STATUS measure_mok()
 	EFI_STATUS efi_status;
 	UINT8 *Data = NULL;
 	UINTN DataSize = 0;
+	UINT8 sha1hash[SHA1_DIGEST_SIZE];
 
 	efi_status = get_variable(L"MokList", &Data, &DataSize, shim_lock_guid);
 	if (efi_status != EFI_SUCCESS)
 		return efi_status;
 
-	efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)Data, DataSize, 14,
-				   (CHAR8 *)"MokList");
+	//TO-DO: put sha1 hash on sha1hash from Data
+	CopyMem(sha1hash, Data, sizeof(sha1hash));
+	/* Measure the MOK LIST into the TPM */
+	UINTN strsize 	= sizeof("MokList");
+	efi_status = tpm_log_event(sha1hash, strsize, 14, (const CHAR8 *)"MokList");
+	//efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)Data, DataSize, 14,
+	//			   (CHAR8 *)"MokList");
 
 	FreePool(Data);
 
@@ -1765,8 +1788,13 @@ EFI_STATUS measure_mok()
 	if (efi_status != EFI_SUCCESS)
 		return efi_status;
 
-	efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)Data, DataSize, 14,
-				   (CHAR8 *)"MokSBState");
+	//TO-DO: put sha1 hash on sha1hash from Data
+	CopyMem(sha1hash, Data, sizeof(sha1hash));
+	/* Measure the MOK LIST into the TPM */
+	strsize 	= sizeof("MokSBState");
+	efi_status = tpm_log_event(sha1hash, strsize, 14, (const CHAR8 *)"MokSBState");
+	//efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)Data, DataSize, 14,
+	//			   (CHAR8 *)"MokSBState");
 
 	FreePool(Data);
 
@@ -2330,6 +2358,7 @@ install_shim_protocols(void)
 	 * Install the security protocol hook
 	 */
 	security_policy_install(shim_verify);
+	security_policy_install(shim_hash);
 #endif
 
 	return EFI_SUCCESS;

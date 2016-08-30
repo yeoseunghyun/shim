@@ -61,12 +61,12 @@ static BOOLEAN tpm2_present(efi_tpm2_protocol_t *tpm)
 	return FALSE;
 }
 
-EFI_STATUS tpm_log_event(EFI_PHYSICAL_ADDRESS buf, UINTN size, UINT8 pcr,
+EFI_STATUS tpm_log_event(const UINT8 *buf, UINTN size, UINT8 pcr,
 			 const CHAR8 *description)
 {
 	EFI_STATUS status;
-	efi_tpm_protocol_t *tpm;
-	efi_tpm2_protocol_t *tpm2;
+	efi_tpm_protocol_t *tpm = NULL;
+	efi_tpm2_protocol_t *tpm2 = NULL;
 
 	status = LibLocateProtocol(&tpm2_guid, (VOID **)&tpm2);
 	/* TPM 2.0 */
@@ -89,7 +89,7 @@ EFI_STATUS tpm_log_event(EFI_PHYSICAL_ADDRESS buf, UINTN size, UINT8 pcr,
 		event->Size = sizeof(*event) - sizeof(event->Event) + strlen(description) + 1;
 		memcpy(event->Event, description, strlen(description) + 1);
 		status = uefi_call_wrapper(tpm2->hash_log_extend_event, 5, tpm2,
-					   0, buf, (UINT64) size, event);
+					   0, (EFI_PHYSICAL_ADDRESS)buf, (UINT64) size, event);
 		FreePool(event);
 		return status;
 	} else {
@@ -99,13 +99,18 @@ EFI_STATUS tpm_log_event(EFI_PHYSICAL_ADDRESS buf, UINTN size, UINT8 pcr,
 
 		status = LibLocateProtocol(&tpm_guid, (VOID **)&tpm);
 
-		if (status != EFI_SUCCESS)
+		if (status != EFI_SUCCESS) {
+			perror(L"LibLocateProtocol(tpm_guid)\n");
 			return EFI_SUCCESS;
-
-		if (!tpm_present(tpm))
+		} if (!tpm_present(tpm)) {
+			perror(L"tpm_present(tpm)\n");
+			if (tpm == NULL)
+				perror(L"tpm == NULL\n");
 			return EFI_SUCCESS;
+		}
 
 		event = AllocatePool(sizeof(*event) + strlen(description) + 1);
+		size = sizeof(*event)+strlen(description)+1;
 
 		if (!event) {
 			perror(L"Unable to allocate event structure\n");
@@ -115,8 +120,9 @@ EFI_STATUS tpm_log_event(EFI_PHYSICAL_ADDRESS buf, UINTN size, UINT8 pcr,
 		event->PCRIndex = pcr;
 		event->EventType = 0x0d;
 		event->EventSize = strlen(description) + 1;
+		memcpy(event->Event, description, strlen(description) + 1);
 		algorithm = 0x00000004;
-		status = uefi_call_wrapper(tpm->log_extend_event, 7, tpm, buf,
+		status = uefi_call_wrapper(tpm->log_extend_event, 7, tpm, (EFI_PHYSICAL_ADDRESS)buf,
 					   (UINT64)size, algorithm, event,
 					   &eventnum, &lastevent);
 		FreePool(event);
