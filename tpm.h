@@ -1,6 +1,16 @@
 #define EFI_TPM_GUID {0xf541796d, 0xa62e, 0x4954, {0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd }};
 #define EFI_TPM2_GUID {0x607f766c, 0x7455, 0x42be, {0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f }};
 
+/* Command return codes */
+#define TPM_BASE 0x0
+#define TPM_SUCCESS TPM_BASE
+#define TPM_AUTHFAIL (TPM_BASE + 0x1)
+#define TPM_BADINDEX (TPM_BASE + 0x2)
+
+#define TPM_TAG_RQU_COMMAND 0x00C1
+
+EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result);
+
 EFI_STATUS tpm_log_event(const UINT8 *buf, UINTN size, UINT8 pcr,
 			 const CHAR8 *description);
 
@@ -114,6 +124,34 @@ typedef struct tdEFI_TCG2_EVENT {
   uint8_t Event[1];
 } __attribute__ ((packed)) EFI_TCG2_EVENT;
 
+typedef struct{
+	uint16_t IPBLength;
+	uint16_t Reserved1;
+	uint16_t OPBLength;
+	uint16_t Reserved2;
+	uint8_t TPMOperandIn[1];
+}PassThroughToTPM_InputParamBlock;
+
+typedef struct {
+	uint16_t OPBLength;
+	uint16_t Reserved;
+	uint8_t TPMOperandOut[1];
+}PassThroughToTPM_OutputParamBlock;
+
+typedef struct {
+	uint16_t tag;
+	uint32_t paramSize;
+	uint32_t ordinal;
+	uint32_t pcrIndex;
+}PCRReadIncoming;
+
+typedef struct {
+	uint16_t tag;
+	uint32_t paramSize;
+	uint32_t returnCode;
+	uint8_t pcr_value[20];
+}PCRReadOutgoing;
+
 struct efi_tpm2_protocol
 {
   EFI_STATUS (EFIAPI *get_capability) (struct efi_tpm2_protocol *this,
@@ -143,3 +181,22 @@ struct efi_tpm2_protocol
 };
 
 typedef struct efi_tpm2_protocol efi_tpm2_protocol_t;
+
+static inline char* TPM_memcpy ( void* dest, const void *src, uint32_t n)
+{
+	char * d = (char*) dest;
+	const char *s= (const char *) src;
+	if(d<s)
+		while (n--)
+			*d++ = *s++;
+	else 
+	{
+		d +=n;
+		s +=n;
+
+		while (n--)
+			*--d = *--s;
+	}
+	return dest;
+}
+

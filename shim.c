@@ -63,6 +63,27 @@ static void *load_options;
 static UINT32 load_options_size;
 static UINT8 in_protocol;
 
+static unsigned char TPM_itoa64[16] =
+        "0123456789ABCDEF";
+
+void itochar(UINT8* input, CHAR16* output){
+	int i =20;
+	UINT8 tmp =0;
+	UINT8 a,b;
+	UINT8 c =0;
+	for(i=0;i<20;i++){
+		tmp=input[i];
+		a=tmp>>4;
+		a = a & 0xf;
+		output[c++]=TPM_itoa64[a];
+		b= tmp & 0xf;
+		output[c++]=TPM_itoa64[b];
+	}
+
+}
+
+
+
 #define perror(fmt, ...) ({						\
 		UINTN __perror_ret = 0;					\
 		if (!in_protocol)					\
@@ -109,7 +130,6 @@ typedef struct {
 	UINT8 *Mok;
 } MokListNode;
 
-static int grub_hash_flag = 0;
 
 /*
  * Perform basic bounds checking of the intra-image pointers
@@ -487,7 +507,6 @@ static CHECK_STATUS check_db_hash_in_ram(EFI_SIGNATURE_LIST *CertList,
 
 	return DATA_NOT_FOUND;
 }
-
 /*
  * Check a hash against an EFI_SIGNATURE_LIST in a UEFI variable
  */
@@ -513,6 +532,7 @@ static CHECK_STATUS check_db_hash(CHAR16 *dbname, EFI_GUID guid, UINT8 *data,
 	return rc;
 
 }
+
 
 /*
  * Check whether the binary signature or hash are present in dbx or the
@@ -564,16 +584,23 @@ static void update_verification_method(verification_method_t method)
 		verification_method = method;
 }
 
-/*
- * Check whether the binary signature or hash are present in db or MokList
- */
-static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
-				   UINT8 *sha256hash, UINT8 *sha1hash)
+/*To use PCR verification*/
+static EFI_STATUS check_whitelist_pcr (WIN_CERTIFICATE_EFI_PKCS *cert,
+				   UINT8 *sha256hash, UINT8 *sha1hash, UINT8 *pcrval)
 {
 	EFI_GUID secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
 	EFI_GUID shim_var = SHIM_LOCK_GUID;
 
 	if (!ignore_db) {
+		if (check_db_hash(L"db", secure_var, pcrval, SHA256_DIGEST_SIZE,
+					EFI_CERT_SHA256_GUID) == DATA_FOUND) {
+			update_verification_method(VERIFIED_BY_HASH);
+			return EFI_SUCCESS;
+		}
+		/*else {update_verification_method(VERIFIED_BY_HASH);
+		       	return EFI_SUCCESS;
+		}*/
+	
 		if (check_db_hash(L"db", secure_var, sha256hash, SHA256_DIGEST_SIZE,
 					EFI_CERT_SHA256_GUID) == DATA_FOUND) {
 			update_verification_method(VERIFIED_BY_HASH);
@@ -609,6 +636,54 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 	update_verification_method(VERIFIED_BY_NOTHING);
 	return EFI_ACCESS_DENIED;
 }
+
+/*
+ * Check whether the binary signature or hash are present in db or MokList
+ */
+static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
+				   UINT8 *sha256hash, UINT8 *sha1hash)
+{
+	EFI_GUID secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
+	EFI_GUID shim_var = SHIM_LOCK_GUID;
+
+	if (!ignore_db) {
+	
+		if (check_db_hash(L"db", secure_var, sha256hash, SHA256_DIGEST_SIZE,
+					EFI_CERT_SHA256_GUID) == DATA_FOUND) {
+			update_verification_method(VERIFIED_BY_HASH);
+			return EFI_SUCCESS;
+		}
+		if (check_db_hash(L"db", secure_var, sha1hash, SHA1_DIGEST_SIZE,
+					EFI_CERT_SHA1_GUID) == DATA_FOUND) {
+			verification_method = VERIFIED_BY_HASH;
+			update_verification_method(VERIFIED_BY_HASH);
+			return EFI_SUCCESS;
+		}
+		if (cert && check_db_cert(L"db", secure_var, cert, sha256hash)
+					== DATA_FOUND) {
+			verification_method = VERIFIED_BY_CERT;
+			update_verification_method(VERIFIED_BY_CERT);
+			return EFI_SUCCESS;
+		}
+	}
+
+	if (check_db_hash(L"MokList", shim_var, sha256hash, SHA256_DIGEST_SIZE,
+			  EFI_CERT_SHA256_GUID) == DATA_FOUND) {
+		verification_method = VERIFIED_BY_HASH;
+		update_verification_method(VERIFIED_BY_HASH);
+		return EFI_SUCCESS;
+	}
+	if (cert && check_db_cert(L"MokList", shim_var, cert, sha256hash) ==
+				DATA_FOUND) {
+		verification_method = VERIFIED_BY_CERT;
+		update_verification_method(VERIFIED_BY_CERT);
+		return EFI_SUCCESS;
+	}
+
+	update_verification_method(VERIFIED_BY_NOTHING);
+	return EFI_ACCESS_DENIED;
+}
+
 
 /*
  * Check whether we're in Secure Boot and user mode
@@ -902,6 +977,114 @@ static EFI_STATUS verify_mok (void) {
 
 	return EFI_SUCCESS;
 }
+/*To use PCR verification*/
+/*
+ * Check that the signature is valid and matches the binary
+ */
+static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
+			 PE_COFF_LOADER_IMAGE_CONTEXT *context)
+{
+	UINT8 sha256hash[SHA256_DIGEST_SIZE];
+	UINT8 sha1hash[SHA1_DIGEST_SIZE];
+	EFI_STATUS status = EFI_ACCESS_DENIED;
+	WIN_CERTIFICATE_EFI_PKCS *cert = NULL;
+	unsigned int size = datasize;
+
+	if (context->SecDir->Size != 0) {
+		cert = ImageAddress (data, size,
+				     context->SecDir->VirtualAddress);
+
+		if (!cert) {
+			perror(L"Certificate located outside the image\n");
+			return EFI_INVALID_PARAMETER;
+		}
+
+		if (cert->Hdr.wCertificateType !=
+		    WIN_CERT_TYPE_PKCS_SIGNED_DATA) {
+			perror(L"Unsupported certificate type %x\n",
+				cert->Hdr.wCertificateType);
+			return EFI_UNSUPPORTED;
+		}
+	}
+
+	status = generate_hash(data, datasize, context, sha256hash, sha1hash);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	/* Measure the grub binary into the TPM */
+	UINTN strsize 	= sizeof("Second stage bootloader-grub");
+	status = tpm_log_event(sha1hash, strsize, 9, (const CHAR8 *)"Second stage bootloader");
+	if (status != EFI_SUCCESS) {
+		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
+		return status;
+	}
+
+	/*
+	 * Check that the MOK database hasn't been modified
+	 */
+	status = verify_mok();
+	if (status != EFI_SUCCESS)
+		return status;
+
+	/*
+	 * Ensure that the binary isn't blacklisted
+	 */
+	status = check_blacklist(cert, sha256hash, sha1hash);
+
+	if (status != EFI_SUCCESS) {
+		perror(L"Binary is blacklisted\n");
+		return status;
+	}
+
+	console_notify(L"Hello from READPCR");
+	UINT8 pcrval[20]={0,};
+	TPM_readpcr(4, pcrval);
+		
+	CHAR16 pcr_msg[40]={0,};
+	itochar(pcrval,pcr_msg);	
+
+	console_notify(pcr_msg);
+
+
+
+//TODO 
+	/*
+	 * Check whether the binary is whitelisted in any of the firmware
+	 * databases
+	 */
+	status = check_whitelist_pcr(cert, sha256hash, sha1hash, pcrval);
+	if (status == EFI_SUCCESS)
+		return status;
+
+	if (cert) {
+		/*
+		 * Check against the shim build key
+		 */
+		if (sizeof(shim_cert) &&
+		    AuthenticodeVerify(cert->CertData,
+			       context->SecDir->Size - sizeof(cert->Hdr),
+			       shim_cert, sizeof(shim_cert), sha256hash,
+			       SHA256_DIGEST_SIZE)) {
+			status = EFI_SUCCESS;
+			return status;
+		}
+
+		/*
+		 * And finally, check against shim's built-in key
+		 */
+		if (vendor_cert_size && AuthenticodeVerify(cert->CertData,
+							context->SecDir->Size - sizeof(cert->Hdr),
+							vendor_cert, vendor_cert_size, sha256hash,
+							SHA256_DIGEST_SIZE)) {
+			status = EFI_SUCCESS;
+			return status;
+		}
+	}
+
+	status = EFI_ACCESS_DENIED;
+
+	return status;
+}
 
 /*
  * Check that the signature is valid and matches the binary
@@ -938,13 +1121,11 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 
 	/* Measure the grub binary into the TPM */
 	UINTN strsize 	= sizeof("Second stage bootloader-grub");
-	status = tpm_log_event(sha1hash, strsize, 8+grub_hash_flag, (const CHAR8 *)"Second stage bootloader");
+	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8 *)"Second stage bootloader");
 	if (status != EFI_SUCCESS) {
 		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
 		return status;
 	}
-	grub_hash_flag++;
-	if (grub_hash_flag > 1) grub_hash_flag = 1;
 
 	/*
 	 * Check that the MOK database hasn't been modified
@@ -962,6 +1143,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		perror(L"Binary is blacklisted\n");
 		return status;
 	}
+
 
 	/*
 	 * Check whether the binary is whitelisted in any of the firmware
@@ -1000,7 +1182,6 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 
 	return status;
 }
-
 /*
  * Read the binary header and grab appropriate information from it
  */
@@ -1148,6 +1329,8 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 	 */
 	if (secure_mode ()) {
 		efi_status = verify_buffer(data, datasize, &context);
+		efi_status = pcr_verify_buffer(data, datasize, &context);
+
 
 		if (EFI_ERROR(efi_status)) {
 			console_error(L"Verification failed", efi_status);
@@ -1567,7 +1750,7 @@ error:
  * Protocol entry point. If secure boot is enabled, verify that the provided
  * buffer is signed with a trusted key.
  */
-EFI_STATUS shim_verify (void *buffer, UINT32 size)
+EFI_STATUS shim_verify (void *buffer, UINT32 size, UINT8 *pcrval)
 {
 	EFI_STATUS status = EFI_SUCCESS;
 	PE_COFF_LOADER_IMAGE_CONTEXT context;
@@ -1583,6 +1766,7 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 		goto done;
 
 	status = verify_buffer(buffer, size, &context);
+	status = pcr_verify_buffer(buffer, size, &context);
 done:
 	in_protocol = 0;
 	return status;

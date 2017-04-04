@@ -8,7 +8,8 @@ typedef
 EFI_STATUS
 (*EFI_SHIM_LOCK_VERIFY) (
 	IN VOID *buffer,
-	IN UINT32 size
+	IN UINT32 size,
+	IN UINT8 *pcrval
 	);
 
 typedef
