@@ -1,8 +1,47 @@
 #include <efi.h>
 #include <efilib.h>
 #include <string.h>
-
+#include "console.h"
 #include "tpm.h"
+
+static void TPM_memcpy ( void* dest, const void *src, uint32_t n)
+{
+	char * d = (char*) dest;
+	const char *s= (const char *) src;
+	if(d<s){
+		while (n--){
+			*d++ = *s++;
+		}
+	}
+	else
+	{
+		d +=n;
+		s +=n;
+		
+		while (n--)
+			*--d = *--s;
+	}
+}
+
+
+
+
+static unsigned char TPM_itoa64[16] =
+"0123456789ABCDEF";
+static void itochar(UINT8* input, CHAR16* output){
+	int i =20;
+	UINT8 tmp =0;
+	UINT8 a,b;
+	UINT8 c =0;
+	for(i=0;i<20;i++){
+		tmp=input[i];
+		a=tmp>>4;
+		a = a & 0xf;
+		output[c++]=TPM_itoa64[a];
+		b= tmp & 0xf;
+		output[c++]=TPM_itoa64[b];
+	}
+}
 
 static const uint32_t TPM_ORD_PcrRead = 0x00000015;
 
@@ -65,58 +104,57 @@ static BOOLEAN tpm2_present(efi_tpm2_protocol_t *tpm)
 #define swap_bytes32(x) ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000UL) >> 24))
 #define swap_bytes16(x) ((((x) & 0xff) << 8) | (((x) & 0xff00) >> 8))
 
-EFI_STATUS TPM_passTroughToTPM (const PassThroughToTPM_InputParamBlock* input, PassThroughToTPM_OutputParamBlock* output)
+EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThroughToTPM_OutputParamBlock* output)
 {
-	efi_tpm_protocol_t *tpm = NULL;
+       	efi_tpm_protocol_t *tpm = NULL;
 	EFI_STATUS status;
 
 	uint32_t inhdrsize = sizeof(*input)-sizeof(input->TPMOperandIn);
 	uint32_t outhdrsize = sizeof(*output)-sizeof(output->TPMOperandOut);
 
 	if(!input){
-		perror(L"Unable to locate result\n");
+		console_notify(L"Unable to locate result\n");
 		return EFI_OUT_OF_RESOURCES;
 	}
 	if(!output){
-		perror(L"Unable to locate result\n");
+		console_notify(L"Unable to locate result\n");
 		return EFI_OUT_OF_RESOURCES;
 	}
 
 	status = LibLocateProtocol(&tpm_guid, (VOID **)&tpm);
 
-	if(status == EFI_SUCCESS){
-		perror(L"PassThroughToTPM: TPM LCATE FAIL\n");
+	if(status != EFI_SUCCESS){
+		console_notify(L"PassThroughToTPM: TPM LCATE FAIL\n");
 		return EFI_NOT_FOUND;
 	}
-
-
-	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, input-> IPBLength - inhdrsize, (uint8_t *)input-> TPMOperandIn, input-> OPBLength-outhdrsize, output-> TPMOperandOut);	
+	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, input-> IPBLength - inhdrsize, input-> TPMOperandIn, input-> OPBLength-outhdrsize, output-> TPMOperandOut);	
 	switch(status){
 		case EFI_SUCCESS:
+			console_notify(L"PassthroughtoTPM: EFI_SUCCESS\n");
  			return EFI_SUCCESS;
 		case EFI_DEVICE_ERROR:	
-			perror(L"PassthroughtoTPM: command failed\n");
+			console_notify(L"PassthroughtoTPM: command failed\n");
 			return status;
 		case EFI_BUFFER_TOO_SMALL:
-			perror(L"PassthroughtoTPM: Output buffer too small\n");
+			console_notify(L"PassthroughtoTPM: Output buffer too small\n");
 			return status;
 		case EFI_NOT_FOUND:
-			perror(L"PassthroughtoTPM: TPM unavailable\n");
+			console_notify(L"PassthroughtoTPM: TPM unavailable\n");
 			return status;
 		case EFI_INVALID_PARAMETER:
-			perror(L"PassthroughtoTPM: Invalid parameter\n");
+			console_notify(L"PassthroughtoTPM: Invalid parameter\n");
 			return status;
 		default:
-			perror(L"PassthroughtoTPM: UNKNOWN ERROR\n");
+			console_notify(L"PassthroughtoTPM: UNKNOWN ERROR\n");
 			return status;
 	}
 }
 
 EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result ) 
 {
-
+	EFI_STATUS status;
 	if(!result){
-		perror(L"Unable to locate result\n");
+		console_notify(L"Unable to locate result\n");
 		return  EFI_OUT_OF_RESOURCES;
 	}
 
@@ -131,7 +169,7 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	passThroughInput = AllocatePool( inputlen );
 	if( !passThroughInput ) {
-		perror(L"readpcr: memory allocation failed" );
+		console_notify(L"readpcr: memory allocation failed" );
 		return EFI_OUT_OF_RESOURCES;
 	}
 
@@ -161,11 +199,12 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	passThroughOutput = AllocatePool( outputlen );
 	if( ! passThroughOutput ) {
-		perror(L"readpcr: memory allocation failed");
+		console_notify(L"readpcr: memory allocation failed");
 		return EFI_OUT_OF_RESOURCES;
 	}
-//////////////////////////////////////////////////////////////////////////////////////
-	TPM_passTroughToTPM( passThroughInput, passThroughOutput );
+	
+	console_notify(L"readpcr: beforePassthroughtoTPM\n");
+	status = TPM_passTroughToTPM( passThroughInput, passThroughOutput );
 	free( passThroughInput );
 
 	pcrReadOutgoing = (void *)passThroughOutput->TPMOperandOut;
@@ -173,17 +212,24 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	if( tpm_PCRreadReturnCode != TPM_SUCCESS ) {
 		free( passThroughOutput );
-
 		if( tpm_PCRreadReturnCode == TPM_BADINDEX ) {
-			perror(L"readpcr: bad pcr index" );
+			console_notify(L"readpcr: bad pcr index" );
 		}
-
-        perror( L"readpcr: tpm_PCRreadReturnCode:e" );
+        console_notify( L"readpcr: tpm_PCRreadReturnCode:e" );
 	}
-
+	console_notify(L"readpcr: before memcpy\n");
 	TPM_memcpy( result, pcrReadOutgoing->pcr_value,20 );
 	free( passThroughOutput );
-	return EFI_SUCCESS;
+
+	CHAR16 testing[40]={0,};
+
+	itochar(result, testing);
+
+	console_notify(testing);	
+
+	console_notify(L"end of readpcr\n");
+
+	return status;
 }
 
 EFI_STATUS tpm_log_event(const UINT8 *buf, UINTN size, UINT8 pcr,

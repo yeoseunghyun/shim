@@ -182,21 +182,3 @@ struct efi_tpm2_protocol
 
 typedef struct efi_tpm2_protocol efi_tpm2_protocol_t;
 
-static inline char* TPM_memcpy ( void* dest, const void *src, uint32_t n)
-{
-	char * d = (char*) dest;
-	const char *s= (const char *) src;
-	if(d<s)
-		while (n--)
-			*d++ = *s++;
-	else 
-	{
-		d +=n;
-		s +=n;
-
-		while (n--)
-			*--d = *--s;
-	}
-	return dest;
-}
-
