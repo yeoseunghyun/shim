@@ -268,11 +268,16 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	//result = tmp_val;
 
 	CHAR16 testing[40]={0,};
+	CHAR8 testing8[20]={0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,};
+
+	itochar(testing8, testing);
+	console_notify(testing);
+	memset(testing, 0, sizeof(testing));
 
 	itochar(result, testing);
+	console_notify(testing);
 
-	console_notify(testing);	
-
+	memset(testing, 0, sizeof(testing));
 	console_notify(L"end of readpcr\n");
 
 	return status;
