@@ -106,7 +106,7 @@ static BOOLEAN tpm2_present(efi_tpm2_protocol_t *tpm)
 
 EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThroughToTPM_OutputParamBlock* output)
 {
-       	efi_tpm_protocol_t *tpm = NULL;
+	efi_tpm_protocol_t *tpm = NULL;
 	EFI_STATUS status;
 
 	uint32_t inhdrsize = sizeof(*input)-sizeof(input->TPMOperandIn);
@@ -124,9 +124,16 @@ EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThr
 	status = LibLocateProtocol(&tpm_guid, (VOID **)&tpm);
 
 	if(status != EFI_SUCCESS){
-		console_notify(L"PassThroughToTPM: TPM LCATE FAIL\n");
+		console_notify(L"ERROR! PassThroughToTPM: TPM LCATE FAIL\n");
 		return EFI_NOT_FOUND;
+	} if(!tpm_present(tpm)) {
+			console_notify(L"ERROR! tpm_present(tpm)\n");
+			if (tpm == NULL)
+				perror(L"ERROR! tpm == NULL\n");
+			return EFI_SUCCESS;
+		}
 	}
+
 	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, input-> IPBLength - inhdrsize, input-> TPMOperandIn, input-> OPBLength-outhdrsize, output-> TPMOperandOut);	
 	switch(status){
 		case EFI_SUCCESS:
@@ -176,26 +183,15 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	passThroughInput->IPBLength = inputlen;
 	passThroughInput->OPBLength = outputlen;
 
-	 pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
-	 Incoming.tag = TPM_TAG_RQU_COMMAND;
-	 Incoming.paramSize = sizeof( *pcrReadIncoming );
-	 Incoming.ordinal = TPM_ORD_PcrRead;
-	 Incoming.pcrIndex = index;
-
-	 pcrReadIncoming = &Incoming;
-	 //CONVERT
-	uint32_t tmp = swap_bytes16(0x00C1);
-		
+	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
+	uint32_t tmp = swap_bytes16(TPM_TAG_RQI_COMMAND);
 	pcrReadIncoming->tag = tmp;
 	tmp = swap_bytes32( sizeof( *pcrReadIncoming ) );
 	pcrReadIncoming->paramSize = tmp;
-	tmp = swap_bytes32( 0x00000015 );
+	tmp = swap_bytes32( TPM_ORD_PcrRead );
 	pcrReadIncoming->ordinal = tmp;
 	tmp = swap_bytes32( (UINT32) index);
 	pcrReadIncoming->pcrIndex = tmp;
-
-	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
-	TPM_memcpy(pcrReadIncoming, &Incoming, sizeof(Incoming));
 
 	passThroughOutput = AllocatePool( outputlen );
 	if( ! passThroughOutput ) {
