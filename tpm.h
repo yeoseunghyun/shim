@@ -8,6 +8,7 @@
 #define TPM_BADINDEX (TPM_BASE + 0x2)
 
 #define TPM_TAG_RQU_COMMAND 0x00C1
+#define TPM_TAG_RSP_COMMAND 0x00C4
 
 EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result);
 
