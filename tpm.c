@@ -3,27 +3,6 @@
 #include <string.h>
 #include "console.h"
 #include "tpm.h"
-/*
-static void TPM_memcpy ( void* dest, const void *src, uint32_t n)
-{
-	char * d = (char*) dest;
-	const char *s= (const char *) src;
-	if(d<s){
-		while (n--){
-			*d++ = *s++;
-		}
-	}
-	else
-	{
-		d +=n;
-		s +=n;
-		
-		while (n--)
-			*--d = *--s;
-	}
-}
-*/
-
 
 
 static unsigned char TPM_itoa64[16] =
@@ -117,7 +96,7 @@ static uint32_t swap_bytes32(UINT32 x){
 
 	return(lb<<16|ub);
 }
-
+/*
 EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThroughToTPM_OutputParamBlock* output)
 {
 	efi_tpm_protocol_t *tpm = NULL;
@@ -175,7 +154,7 @@ EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThr
 			return status;
 	}
 }
-
+*/
 EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result ) 
 {
 
@@ -199,27 +178,30 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 		console_notify(L"PassThroughToTPM: TPM present fail\n");
 		return EFI_NOT_FOUND;
 	}
+
+	PCRReadOutgoing* pcrReadOutgoing = NULL;
+
+
 /*
-//	PassThroughToTPM_InputParamBlock *passThroughInput = NULL;
+	PassThroughToTPM_InputParamBlock *passThroughInput = NULL;
 	PCRReadIncoming *pcrReadIncoming = NULL;
 	pcrReadIncoming = AllocatePool((uint16_t) sizeof(PCRReadIncoming));
-	//PCRReadIncoming Incoming;
-//	uint16_t inputlen = sizeof( *passThroughInput ) - sizeof( passThroughInput->TPMOperandIn ) + sizeof( *pcrReadIncoming );
+	PCRReadIncoming Incoming;
+	uint16_t inputlen = sizeof( *passThroughInput ) - sizeof( passThroughInput->TPMOperandIn ) + sizeof( *pcrReadIncoming );
 
-*/
-//	PassThroughToTPM_OutputParamBlock *passThroughOutput = NULL;
-	PCRReadOutgoing* pcrReadOutgoing = NULL;
-//	uint16_t outputlen = sizeof( *passThroughOutput ) - sizeof( passThroughOutput->TPMOperandOut ) + sizeof( *pcrReadOutgoing );
 
-//	passThroughInput = AllocatePool( inputlen );
-//	if( !passThroughInput ) {
-//		console_notify(L"readpcr: memory allocation failed\n" );
-//		return EFI_OUT_OF_RESOURCES;
-//	}
+	PassThroughToTPM_OutputParamBlock *passThroughOutput = NULL;
+	uint16_t outputlen = sizeof( *passThroughOutput ) - sizeof( passThroughOutput->TPMOperandOut ) + sizeof( *pcrReadOutgoing );
 
-//	passThroughInput->IPBLength = inputlen;
-//	passThroughInput->OPBLength = outputlen;
-/*
+	passThroughInput = AllocatePool( inputlen );
+	if( !passThroughInput ) {
+		console_notify(L"readpcr: memory allocation failed\n" );
+		return EFI_OUT_OF_RESOURCES;
+	}
+
+	passThroughInput->IPBLength = inputlen;
+	passThroughInput->OPBLength = outputlen;
+
 	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
 	Incoming.tag = TPM_TAG_RQU_COMMAND;
 	Incoming.paramSize = sizeof( *pcrReadIncoming );
@@ -228,8 +210,6 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	pcrReadIncoming = &Incoming;
 */
-
-	//CONVERT
 
 	UINT8 CmdBuf[64];
 
@@ -243,18 +223,18 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	pcrReadIncoming->paramSize = swap_bytes32( sizeof(PCRReadIncoming) );
 	pcrReadIncoming->ordinal = swap_bytes32(TPM_ORD_PcrRead);
 	pcrReadIncoming->pcrIndex = swap_bytes32(index);
-*/
-//	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
-	//TPM_memcpy(pcrReadIncoming, &Incoming, sizeof(Incoming));
 
-//	passThroughOutput = AllocatePool( outputlen );
-//	if( ! passThroughOutput ) {
-//		console_notify(L"readpcr: memory allocation failedi\n");
-//		return EFI_OUT_OF_RESOURCES;
-//	}
-	
-//	status = TPM_passTroughToTPM( passThroughInput, passThroughOutput );
-//	free( passThroughInput );
+	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
+	TPM_memcpy(pcrReadIncoming, &Incoming, sizeof(Incoming));
+
+	passThroughOutput = AllocatePool( outputlen );
+	if( ! passThroughOutput ) {
+		console_notify(L"readpcr: memory allocation failedi\n");
+		return EFI_OUT_OF_RESOURCES;
+	}
+	status = TPM_passTroughToTPM( passThroughInput, passThroughOutput );
+	free( passThroughInput );
+*/
 
 	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, sizeof(PCRReadIncoming), CmdBuf, sizeof(CmdBuf), CmdBuf);
 
@@ -276,19 +256,20 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
         console_notify( L"readpcr: tpm_PCRreadReturnCode:e\n" );
 	}
 
-	uint8_t tmp_val[20];
+	//UINT8 tmp_val[20];
 	int valsize = 0;
 	for(valsize =0;valsize <20; valsize++){
-		tmp_val[valsize]=pcrReadOutgoing->pcr_value[valsize];
+		result[valsize]=pcrReadOutgoing->pcr_value[valsize];
 	}
 	//TPM_memcpy( result, pcrReadOutgoing->pcr_value,20 );
 	//free( passThroughOutput );
 
-	result=tmp_val;
+
+	//result = tmp_val;
 
 	CHAR16 testing[40]={0,};
 
-	itochar(tmp_val, testing);
+	itochar(result, testing);
 
 	console_notify(testing);	
 

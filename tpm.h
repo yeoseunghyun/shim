@@ -182,4 +182,3 @@ struct efi_tpm2_protocol
 };
 
 typedef struct efi_tpm2_protocol efi_tpm2_protocol_t;
-
