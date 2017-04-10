@@ -1036,13 +1036,13 @@ static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
 		return status;
 	}
 
-	console_notify(L"Hello from READPCR");
+	console_notify(L"Hello from READPCR\n");
 	UINT8 pcrval[20]={0,};
-	TPM_readpcr(8, pcrval);
+	TPM_readpcr(4, pcrval);
 		
 	CHAR16 pcr_msg[40]={0,};
 	itochar(pcrval,pcr_msg);	
-	console_notify(L"PCR_READ\n");
+	console_notify(L"SHIM: PCR_READ\n");
 	console_notify(pcr_msg);
 
 
