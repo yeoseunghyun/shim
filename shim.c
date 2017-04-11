@@ -995,7 +995,8 @@ static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
 
 	/* Measure the grub binary into the TPM */
 	UINTN strsize 	= sizeof("Second stage bootloader-grub");
-	status = tpm_log_event(sha1hash, strsize, 9, (const CHAR8 *)"Second stage bootloader");
+	
+	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8 *)"Second stage bootloader");
 	if (status != EFI_SUCCESS) {
 		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
 		return status;
@@ -1019,12 +1020,29 @@ static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
 	}
 
 	console_notify(L"Hello from READPCR\n");
-	UINT8 pcrval[20]={0,};
-	TPM_readpcr(4, pcrval);
 
-	CHAR16 pcr_msg[41]={0,};
+	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8 *)"Second stage bootloader");
+	if (status != EFI_SUCCESS) {
+		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
+		return status;
+	}
+
+	UINT8 pcrval[20]={0,};
+	
+	status = TPM_readpcr(8, pcrval);
+	if(status != EFI_SUCCESS){
+		console_notify(L"SHIM: TPM_READPCR not successful\n");
+		return status;
+	}
+	else{
+		console_notify(L"SHIM: TPM_READPCR SUCCESS\n");
+	}
+
+	CHAR16 pcr_msg[41]={0,};	
 	memset(pcr_msg, 0, sizeof(pcr_msg));
+
 	itochar(pcrval,pcr_msg,20);
+
 	console_notify(L"SHIM: PCR_READ\n");
 	console_notify(pcr_msg);
 

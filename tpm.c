@@ -8,17 +8,19 @@
 CHAR16 TPM_itoa64[16] =
 L"0123456789ABCDEF";
 static void itochar(UINT8* input, CHAR16* output, uint32_t length){
-	int i = length;
+	int len = length;
+	int i=0;
 	UINT8 tmp =0;
 	UINT8 a,b;
 	UINT8 c =0;
 	CHAR16 chara;
 	CHAR16 charb;
-	for(i=0;i<20;i++){
+
+	for(i=0;i<len;i++){
 		tmp=input[i];
 		a = tmp & 0xf0;
 		a = a >> 4;
-		b = tmp & 0xf;
+		b = tmp & 0x0f;
 
 		chara = TPM_itoa64[a];
 		charb = TPM_itoa64[b];
@@ -218,6 +220,7 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 */
 
 	UINT8 CmdBuf[64];
+	UINT8 CmdOut[64];
 
 	*(UINT16*)&CmdBuf[0] = swap_bytes16(TPM_TAG_RQU_COMMAND);
 	*(UINT32*)&CmdBuf[2] = swap_bytes32( sizeof(PCRReadIncoming) );
@@ -242,22 +245,43 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	free( passThroughInput );
 */
 
-	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, sizeof(PCRReadIncoming), CmdBuf, sizeof(CmdBuf), CmdBuf);
-
+	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, sizeof(PCRReadIncoming), CmdBuf, sizeof(CmdOut), CmdOut);
+	
+	switch(status){
+		case EFI_SUCCESS:
+			console_notify(L"PassthroughtoTPM: EFI_SUCCESS\n");
+			break;
+		case EFI_DEVICE_ERROR:	
+			console_notify(L"PassthroughtoTPM: command failed\n");
+			break;
+		case EFI_BUFFER_TOO_SMALL:
+			console_notify(L"PassthroughtoTPM: Output buffer too small\n");
+			break;
+		case EFI_NOT_FOUND:
+			console_notify(L"PassthroughtoTPM: TPM unavailable\n");
+			break;
+		case EFI_INVALID_PARAMETER:
+			console_notify(L"PassthroughtoTPM: Invalid parameter\n");
+			break;
+		default:
+			console_notify(L"PassthroughtoTPM: UNKNOWN ERROR\n");
+			break;
+	}
 	if( status != EFI_SUCCESS){
 		console_notify(L"readpcr: passThrough fail\n");
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-	pcrReadOutgoing = (PCRReadOutgoing*)&CmdBuf[0];
+	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
 	
-	uint32_t tpm_PCRreadReturnCode = pcrReadOutgoing->returnCode ;
+	uint32_t tpm_PCRreadReturnCode = CmdOut[sizeof(uint16_t)+sizeof(uint32_t)];
+		//pcrReadOutgoing->returnCode ;
 	CHAR16 msgbuf[9] = {0,};
 	memset(msgbuf, 0, sizeof(msgbuf));
 	itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
 	console_notify(msgbuf);
 
-	if( tpm_PCRreadReturnCode != TPM_SUCCESS  || 
+	if( pcrReadOutgoing->returnCode != TPM_SUCCESS ||
 			pcrReadOutgoing->tag != swap_bytes16(TPM_TAG_RSP_COMMAND)) {
 		//free( passThroughOutput );
 		if( tpm_PCRreadReturnCode == TPM_BADINDEX ) {
@@ -279,11 +303,12 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	CHAR16 testing[20]={0,};
 	memset(testing, 0, sizeof(testing));
-	CHAR8 testing8[10]={0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	CHAR8 testing8[12]={0, 1, 2, 3, 4, 5, 6, 7, 8, 9 , 10, 11};
 
-	itochar(testing8, testing, 10);
+	itochar(testing8, testing, 12);
 	console_notify(testing);
 
+	memset(testing, 0, sizeof(testing));
 	itochar(result, testing, 20);
 	console_notify(testing);
 
