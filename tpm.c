@@ -5,20 +5,26 @@
 #include "tpm.h"
 
 
-static unsigned char TPM_itoa64[16] =
-"0123456789ABCDEF";
-static void itochar(UINT8* input, CHAR16* output){
-	int i =20;
+CHAR16 TPM_itoa64[16] =
+L"0123456789ABCDEF";
+static void itochar(UINT8* input, CHAR16* output, uint32_t length){
+	int i = length;
 	UINT8 tmp =0;
 	UINT8 a,b;
 	UINT8 c =0;
+	CHAR16 chara;
+	CHAR16 charb;
 	for(i=0;i<20;i++){
 		tmp=input[i];
-		a=tmp>>4;
-		a = a & 0xf;
-		output[c++]=TPM_itoa64[a];
-		b= tmp & 0xf;
-		output[c++]=TPM_itoa64[b];
+		a = tmp & 0xf0;
+		a = a >> 4;
+		b = tmp & 0xf;
+
+		chara = TPM_itoa64[a];
+		charb = TPM_itoa64[b];
+
+		output[c++]=chara;
+		output[c++]=charb;
 	}
 }
 
@@ -246,6 +252,10 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	pcrReadOutgoing = (PCRReadOutgoing*)&CmdBuf[0];
 	
 	uint32_t tpm_PCRreadReturnCode = pcrReadOutgoing->returnCode ;
+	CHAR16 msgbuf[9] = {0,};
+	memset(msgbuf, 0, sizeof(msgbuf));
+	itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
+	console_notify(msgbuf);
 
 	if( tpm_PCRreadReturnCode != TPM_SUCCESS  || 
 			pcrReadOutgoing->tag != swap_bytes16(TPM_TAG_RSP_COMMAND)) {
@@ -253,7 +263,7 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 		if( tpm_PCRreadReturnCode == TPM_BADINDEX ) {
 			console_notify(L"readpcr: bad pcr index\n" );
 		}
-        console_notify( L"readpcr: tpm_PCRreadReturnCode:e\n" );
+        console_notify( L"readpcr: tpm_PCRreadReturnCode:\n" );
 	}
 
 	//UINT8 tmp_val[20];
@@ -267,14 +277,14 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	//result = tmp_val;
 
-	CHAR16 testing[40]={0,};
-	CHAR8 testing8[20]={0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,};
-
-	itochar(testing8, testing);
-	console_notify(testing);
+	CHAR16 testing[20]={0,};
 	memset(testing, 0, sizeof(testing));
+	CHAR8 testing8[10]={0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
-	itochar(result, testing);
+	itochar(testing8, testing, 10);
+	console_notify(testing);
+
+	itochar(result, testing, 20);
 	console_notify(testing);
 
 	memset(testing, 0, sizeof(testing));

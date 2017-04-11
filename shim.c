@@ -35,6 +35,7 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <string.h>
 #include <Library/BaseCryptLib.h>
 #include "PeImage.h"
 #include "shim.h"
@@ -63,26 +64,7 @@ static void *load_options;
 static UINT32 load_options_size;
 static UINT8 in_protocol;
 
-static unsigned char TPM_itoa64[16] =
-        "0123456789ABCDEF";
-
-void itochar(UINT8* input, CHAR16* output){
-	int i =20;
-	UINT8 tmp =0;
-	UINT8 a,b;
-	UINT8 c =0;
-	for(i=0;i<20;i++){
-		tmp=input[i];
-		a=tmp>>4;
-		a = a & 0xf;
-		output[c++]=TPM_itoa64[a];
-		b= tmp & 0xf;
-		output[c++]=TPM_itoa64[b];
-	}
-
-}
-
-
+extern void itochar(UINT8*, CHAR16*, uint32_t);
 
 #define perror(fmt, ...) ({						\
 		UINTN __perror_ret = 0;					\
@@ -1039,9 +1021,10 @@ static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
 	console_notify(L"Hello from READPCR\n");
 	UINT8 pcrval[20]={0,};
 	TPM_readpcr(4, pcrval);
-		
-	CHAR16 pcr_msg[40]={0,};
-	itochar(pcrval,pcr_msg);	
+
+	CHAR16 pcr_msg[41]={0,};
+	memset(pcr_msg, 0, sizeof(pcr_msg));
+	itochar(pcrval,pcr_msg,20);
 	console_notify(L"SHIM: PCR_READ\n");
 	console_notify(pcr_msg);
 
