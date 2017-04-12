@@ -1029,13 +1029,10 @@ static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
 
 	UINT8 pcrval[20]={0,};
 	
-	status = TPM_readpcr(8, pcrval);
+	status = TPM_readpcr(4, pcrval);
 	if(status != EFI_SUCCESS){
 		console_notify(L"SHIM: TPM_READPCR not successful\n");
 		return status;
-	}
-	else{
-		console_notify(L"SHIM: TPM_READPCR SUCCESS\n");
 	}
 
 	CHAR16 pcr_msg[41]={0,};	

@@ -125,20 +125,6 @@ typedef struct tdEFI_TCG2_EVENT {
   uint8_t Event[1];
 } __attribute__ ((packed)) EFI_TCG2_EVENT;
 
-typedef struct{
-	uint16_t IPBLength;
-	uint16_t Reserved1;
-	uint16_t OPBLength;
-	uint16_t Reserved2;
-	uint8_t TPMOperandIn[1];
-}PassThroughToTPM_InputParamBlock;
-
-typedef struct {
-	uint16_t OPBLength;
-	uint16_t Reserved;
-	uint8_t TPMOperandOut[1];
-}PassThroughToTPM_OutputParamBlock;
-
 typedef struct {
 	uint16_t tag;
 	uint32_t paramSize;
@@ -152,6 +138,12 @@ typedef struct {
 	uint32_t returnCode;
 	uint8_t pcr_value[20];
 }PCRReadOutgoing;
+
+typedef struct {
+	uint16_t tag;
+	uint32_t paramSize;
+	uint32_t returnCode;
+}PCRReadOutgoing_hdr;
 
 struct efi_tpm2_protocol
 {

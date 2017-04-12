@@ -8,25 +8,17 @@
 CHAR16 TPM_itoa64[16] =
 L"0123456789ABCDEF";
 static void itochar(UINT8* input, CHAR16* output, uint32_t length){
-	int len = length;
 	int i=0;
 	UINT8 tmp =0;
 	UINT8 a,b;
-	UINT8 c =0;
-	CHAR16 chara;
-	CHAR16 charb;
-
-	for(i=0;i<len;i++){
+	int c =0;
+	for(i=0;i<20;i++){
 		tmp=input[i];
 		a = tmp & 0xf0;
 		a = a >> 4;
 		b = tmp & 0x0f;
-
-		chara = TPM_itoa64[a];
-		charb = TPM_itoa64[b];
-
-		output[c++]=chara;
-		output[c++]=charb;
+		output[c++]= TPM_itoa64[a];
+		output[c++] = TPM_itoa64[b];
 	}
 }
 
@@ -165,8 +157,6 @@ EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThr
 */
 EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result ) 
 {
-
-
 	efi_tpm_protocol_t *tpm = NULL;
 	EFI_STATUS status;
 
@@ -187,8 +177,7 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 		return EFI_NOT_FOUND;
 	}
 
-	PCRReadOutgoing* pcrReadOutgoing = NULL;
-
+//	PCRReadOutgoing* pcrReadOutgoing = NULL;
 
 /*
 	PassThroughToTPM_InputParamBlock *passThroughInput = NULL;
@@ -219,7 +208,7 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	pcrReadIncoming = &Incoming;
 */
 
-	UINT8 CmdBuf[64];
+	UINT8 CmdBuf[sizeof(PCRReadIncoming)];
 	UINT8 CmdOut[64];
 
 	*(UINT16*)&CmdBuf[0] = swap_bytes16(TPM_TAG_RQU_COMMAND);
@@ -247,53 +236,39 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, sizeof(PCRReadIncoming), CmdBuf, sizeof(CmdOut), CmdOut);
 	
-	switch(status){
-		case EFI_SUCCESS:
-			console_notify(L"PassthroughtoTPM: EFI_SUCCESS\n");
-			break;
-		case EFI_DEVICE_ERROR:	
-			console_notify(L"PassthroughtoTPM: command failed\n");
-			break;
-		case EFI_BUFFER_TOO_SMALL:
-			console_notify(L"PassthroughtoTPM: Output buffer too small\n");
-			break;
-		case EFI_NOT_FOUND:
-			console_notify(L"PassthroughtoTPM: TPM unavailable\n");
-			break;
-		case EFI_INVALID_PARAMETER:
-			console_notify(L"PassthroughtoTPM: Invalid parameter\n");
-			break;
-		default:
-			console_notify(L"PassthroughtoTPM: UNKNOWN ERROR\n");
-			break;
-	}
 	if( status != EFI_SUCCESS){
 		console_notify(L"readpcr: passThrough fail\n");
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
+//	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
 	
 	uint32_t tpm_PCRreadReturnCode = CmdOut[sizeof(uint16_t)+sizeof(uint32_t)];
-		//pcrReadOutgoing->returnCode ;
-	CHAR16 msgbuf[9] = {0,};
-	memset(msgbuf, 0, sizeof(msgbuf));
-	itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
-	console_notify(msgbuf);
+	uint16_t tpm_PCRreadTag=CmdOut[0];
+	uint8_t *pcr_value;
+	//memset(pcr_value,0,sizeof(pcr_value));
 
-	if( pcrReadOutgoing->returnCode != TPM_SUCCESS ||
-			pcrReadOutgoing->tag != swap_bytes16(TPM_TAG_RSP_COMMAND)) {
-		//free( passThroughOutput );
-		if( tpm_PCRreadReturnCode == TPM_BADINDEX ) {
+	int valsize =0;
+
+	pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing_hdr)];
+
+	//pcrReadOutgoing->returnCode ;
+//	CHAR16 msgbuf[9] = {0,};
+//	memset(msgbuf, 0, sizeof(msgbuf));
+///	itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
+//	console_notify(msgbuf);
+
+	if( tpm_PCRreadReturnCode != TPM_SUCCESS){
+		if( tpm_PCRreadTag == TPM_BADINDEX ) {
 			console_notify(L"readpcr: bad pcr index\n" );
 		}
-        console_notify( L"readpcr: tpm_PCRreadReturnCode:\n" );
+        console_notify( L"readpcr: bad tpm_PCRreadReturnCode\n" );
 	}
 
 	//UINT8 tmp_val[20];
-	int valsize = 0;
+//	valsize = 0;
 	for(valsize =0;valsize <20; valsize++){
-		result[valsize]=pcrReadOutgoing->pcr_value[valsize];
+		result[valsize]=pcr_value[valsize];
 	}
 	//TPM_memcpy( result, pcrReadOutgoing->pcr_value,20 );
 	//free( passThroughOutput );
@@ -301,19 +276,15 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 	//result = tmp_val;
 
-	CHAR16 testing[20]={0,};
+	CHAR16 testing[20];
 	memset(testing, 0, sizeof(testing));
-	CHAR8 testing8[12]={0, 1, 2, 3, 4, 5, 6, 7, 8, 9 , 10, 11};
-
-	itochar(testing8, testing, 12);
-	console_notify(testing);
-
-	memset(testing, 0, sizeof(testing));
+//	itochar (pcr_value, testing, 20);
+//	console_notify(testing);
+//	memset(testing,0,sizeof(testing));
 	itochar(result, testing, 20);
 	console_notify(testing);
 
-	memset(testing, 0, sizeof(testing));
-	console_notify(L"end of readpcr\n");
+
 
 	return status;
 }
