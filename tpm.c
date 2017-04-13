@@ -7,7 +7,7 @@
 
 CHAR16 TPM_itoa64[16] =
 L"0123456789ABCDEF";
-static void itochar(UINT8* input, CHAR16* output, uint32_t length){
+void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length){
 	int i=0;
 	UINT8 tmp =0;
 	UINT8 a,b;
@@ -281,7 +281,7 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 //	itochar (pcr_value, testing, 20);
 //	console_notify(testing);
 //	memset(testing,0,sizeof(testing));
-	itochar(result, testing, 20);
+	tpm_itochar(result, testing, 20);
 	console_notify(testing);
 
 

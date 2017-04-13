@@ -64,8 +64,6 @@ static void *load_options;
 static UINT32 load_options_size;
 static UINT8 in_protocol;
 
-extern void itochar(UINT8*, CHAR16*, uint32_t);
-
 #define perror(fmt, ...) ({						\
 		UINTN __perror_ret = 0;					\
 		if (!in_protocol)					\
@@ -1038,7 +1036,7 @@ static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
 	CHAR16 pcr_msg[41]={0,};	
 	memset(pcr_msg, 0, sizeof(pcr_msg));
 
-	itochar(pcrval,pcr_msg,20);
+	tpm_itochar(pcrval,pcr_msg,20);
 
 	console_notify(L"SHIM: PCR_READ\n");
 	console_notify(pcr_msg);
