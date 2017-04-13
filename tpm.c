@@ -91,8 +91,8 @@ static uint32_t swap_bytes32(UINT32 x){
 	UINT32 lb;
 	UINT32 ub;
 
-	lb= (UINT32)swap_bytes16((UINT16)x);
-	ub= (UINT32)swap_bytes16((UINT16)x);
+	lb= (UINT32)swap_bytes16((UINT16)(x & 0xffff));
+	ub= (UINT32)swap_bytes16((UINT16)(x >> 16));
 
 	return(lb<<16|ub);
 }
@@ -243,14 +243,14 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 
 //	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
 	
-	uint32_t tpm_PCRreadReturnCode = CmdOut[sizeof(uint16_t)+sizeof(uint32_t)];
-	uint16_t tpm_PCRreadTag=CmdOut[0];
+	uint32_t tpm_PCRreadReturnCode = (uint32_t)CmdOut[sizeof(uint16_t)+(sizeof(uint32_t)*2)];
+	uint16_t tpm_PCRreadTag=(uint16_t)CmdOut[0];
 	uint8_t *pcr_value;
 	//memset(pcr_value,0,sizeof(pcr_value));
 
 	int valsize =0;
 
-	pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing_hdr)];
+	pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing)];
 
 	//pcrReadOutgoing->returnCode ;
 //	CHAR16 msgbuf[9] = {0,};
