@@ -206,7 +206,7 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 
 	pcrReadIncoming = &Incoming;
 */
-
+/*
 	UINT8 CmdBuf[64];
 	UINT8 CmdOut[64];
 	memset(CmdBuf,0,sizeof(CmdBuf));
@@ -216,13 +216,18 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 	*(UINT32*)&CmdBuf[4] = swap_bytes32((UINT32)sizeof(PCRReadIncoming) );
 	*(UINT32*)&CmdBuf[8] = swap_bytes32(TPM_ORD_PcrRead);
 	*(UINT32*)&CmdBuf[12]= swap_bytes32(index);
+*/
+	PCRReadIncoming* pcrReadIncoming = NULL;
+	PCRReadOutgoing* pcrReadOutgoing = NULL;
+	pcrReadIncoming = AllocatePool(sizeof(*pcrReadIncoming));
+	pcrReadOutgoing = AllocatePool(sizeof(*pcrReadOutgoing));
 
-/*	
 	pcrReadIncoming->tag = swap_bytes16(TPM_TAG_RQU_COMMAND);
 	pcrReadIncoming->paramSize = swap_bytes32( sizeof(PCRReadIncoming) );
 	pcrReadIncoming->ordinal = swap_bytes32(TPM_ORD_PcrRead);
-	pcrReadIncoming->pcrIndex = swap_bytes32(index);
+	pcrReadIncoming->pcrIndex = swap_bytes32(0);
 
+/*	
 	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
 	TPM_memcpy(pcrReadIncoming, &Incoming, sizeof(Incoming));
 
@@ -235,7 +240,8 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 	free( passThroughInput );
 */
 
-	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, sizeof(PCRReadIncoming), CmdBuf, sizeof(CmdOut), CmdOut);
+	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, 
+			sizeof( *pcrReadIncoming), pcrReadIncoming, sizeof( *pcrReadOutgoing), pcrReadOutgoing);
 	
 	if( status != EFI_SUCCESS){
 		console_notify(L"readpcr: passThrough fail\n");
@@ -244,32 +250,26 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 
 //	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
 
-	PCRReadOutgoing* Ohdr = (PCRReadOutgoing*)&CmdOut[0];
+	//PCRReadOutgoing* Ohdr = (PCRReadOutgoing*)&CmdOut[0];
 	
-	uint32_t tpm_PCRreadReturnCode = *(uint32_t*)&CmdOut[8];
-	uint32_t tpm_PCRreadReturnCode2 = Ohdr->returnCode;
-	if(tpm_PCRreadReturnCode != tpm_PCRreadReturnCode2) console_notify(L"return code not matched\n");
-	uint16_t tpm_PCRreadTag=(uint16_t)CmdOut[0];
-	uint16_t tpm_PCRreadTag2=(uint16_t)Ohdr->tag;
-	if(tpm_PCRreadTag != tpm_PCRreadTag2) console_notify(L"tag not matched\n");
-	uint8_t *pcr_value;
+	//uint32_t tpm_PCRreadReturnCode = *(uint32_t*)&CmdOut[8];
+	//uint32_t tpm_PCRreadReturnCode2 = Ohdr->returnCode;
+	uint32_t tpm_PCRreadReturnCode = pcrReadOutgoing->returnCode;
+	//if(tpm_PCRreadReturnCode != tpm_PCRreadReturnCode2) console_notify(L"return code not matched\n");
+	//uint16_t tpm_PCRreadTag=(uint16_t)CmdOut[0];
+	//uint16_t tpm_PCRreadTag2=(uint16_t)Ohdr->tag;
+	uint16_t tpm_PCRreadTag=pcrReadOutgoing->tag;
+	//if(tpm_PCRreadTag != tpm_PCRreadTag2) console_notify(L"tag not matched\n");
+	//uint8_t *pcr_value;
 	//memset(pcr_value,0,sizeof(pcr_value));
 
 	int valsize =0;
 
-	pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing_hdr)];
+	//pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing_hdr)];
 
 	//pcrReadOutgoing->returnCode ;
-	CHAR16 msgbuf[9] = {0,};
-	memset(msgbuf, 0, sizeof(msgbuf));
-	tpm_itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
-	console_notify(msgbuf);
-
-	memset(msgbuf, 0, sizeof(msgbuf));
-	tpm_itochar((UINT8*)&tpm_PCRreadReturnCode2, msgbuf, 4);
-	console_notify(msgbuf);
-
-
+	CHAR16 testing[40] = {0,};
+	memset(testing, 0, sizeof(testing));
 
 	if( tpm_PCRreadReturnCode != TPM_SUCCESS){
 		if( tpm_PCRreadTag != swap_bytes16(TPM_TAG_RSP_COMMAND)){
@@ -278,26 +278,14 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
         console_notify( L"readpcr: bad tpm_PCRreadReturnCode\n" );
 	}
 
-	//UINT8 tmp_val[20];
-//	valsize = 0;
 	for(valsize =0;valsize <20; valsize++){
-		result[valsize]=pcr_value[valsize];
+		result[valsize]=pcrReadOutgoing->pcr_value[valsize];
 	}
-	//TPM_memcpy( result, pcrReadOutgoing->pcr_value,20 );
-	//free( passThroughOutput );
+	free( pcrReadOutgoing );
+	free( pcrReadIncoming );
 
-
-	//result = tmp_val;
-
-	CHAR16 testing[20];
-	memset(testing, 0, sizeof(testing));
-//	itochar (pcr_value, testing, 20);
-//	console_notify(testing);
-//	memset(testing,0,sizeof(testing));
 	tpm_itochar(result, testing, 20);
 	console_notify(testing);
-
-
 
 	return status;
 }
