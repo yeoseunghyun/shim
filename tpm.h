@@ -7,12 +7,13 @@
 #define TPM_AUTHFAIL (TPM_BASE + 0x1)
 #define TPM_BADINDEX (TPM_BASE + 0x2)
 
-#define TPM_TAG_RQU_COMMAND 0x00C1
-#define TPM_TAG_RSP_COMMAND 0x00C4
+#define TPM_ORD_PcrRead  ((UINT32)0x00000015)
+#define TPM_TAG_RQU_COMMAND 193
+#define TPM_TAG_RSP_COMMAND 196
 
 void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length);
 
-EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result);
+EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result);
 
 EFI_STATUS tpm_log_event(const UINT8 *buf, UINTN size, UINT8 pcr,
 			 const CHAR8 *description);

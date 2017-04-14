@@ -9,10 +9,11 @@ CHAR16 TPM_itoa64[16] =
 L"0123456789ABCDEF";
 void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length){
 	int i=0;
+	int len = length;
 	UINT8 tmp =0;
 	UINT8 a,b;
 	int c =0;
-	for(i=0;i<20;i++){
+	for(i=0;i<len;i++){
 		tmp=input[i];
 		a = tmp & 0xf0;
 		a = a >> 4;
@@ -21,8 +22,6 @@ void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length){
 		output[c++] = TPM_itoa64[b];
 	}
 }
-
-static const uint32_t TPM_ORD_PcrRead = 0x00000015;
 
 extern UINT8 in_protocol;
 
@@ -89,12 +88,12 @@ static uint16_t swap_bytes16(UINT16 x)
 
 static uint32_t swap_bytes32(UINT32 x){
 	UINT32 lb;
-	UINT32 ub;
+	UINT32 hb;
 
 	lb= (UINT32)swap_bytes16((UINT16)(x & 0xffff));
-	ub= (UINT32)swap_bytes16((UINT16)(x >> 16));
+	hb= (UINT32)swap_bytes16((UINT16)(x >> 16));
 
-	return(lb<<16|ub);
+	return(lb<<16|hb);
 }
 /*
 EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThroughToTPM_OutputParamBlock* output)
@@ -155,7 +154,7 @@ EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThr
 	}
 }
 */
-EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result ) 
+EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result ) 
 {
 	efi_tpm_protocol_t *tpm = NULL;
 	EFI_STATUS status;
@@ -208,13 +207,15 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	pcrReadIncoming = &Incoming;
 */
 
-	UINT8 CmdBuf[sizeof(PCRReadIncoming)];
+	UINT8 CmdBuf[64];
 	UINT8 CmdOut[64];
+	memset(CmdBuf,0,sizeof(CmdBuf));
+	memset(CmdOut,0,sizeof(CmdOut));
 
 	*(UINT16*)&CmdBuf[0] = swap_bytes16(TPM_TAG_RQU_COMMAND);
-	*(UINT32*)&CmdBuf[2] = swap_bytes32( sizeof(PCRReadIncoming) );
-	*(UINT32*)&CmdBuf[6] = swap_bytes32(TPM_ORD_PcrRead);
-	*(UINT32*)&CmdBuf[10]= swap_bytes32(index);
+	*(UINT32*)&CmdBuf[4] = swap_bytes32((UINT32)sizeof(PCRReadIncoming) );
+	*(UINT32*)&CmdBuf[8] = swap_bytes32(TPM_ORD_PcrRead);
+	*(UINT32*)&CmdBuf[12]= swap_bytes32(index);
 
 /*	
 	pcrReadIncoming->tag = swap_bytes16(TPM_TAG_RQU_COMMAND);
@@ -242,25 +243,37 @@ EFI_STATUS TPM_readpcr( const UINT8 index, UINT8* result )
 	}
 
 //	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
+
+	PCRReadOutgoing* Ohdr = (PCRReadOutgoing*)&CmdOut[0];
 	
-	uint32_t tpm_PCRreadReturnCode = (uint32_t)CmdOut[sizeof(uint16_t)+(sizeof(uint32_t)*2)];
+	uint32_t tpm_PCRreadReturnCode = *(uint32_t*)&CmdOut[8];
+	uint32_t tpm_PCRreadReturnCode2 = Ohdr->returnCode;
+	if(tpm_PCRreadReturnCode != tpm_PCRreadReturnCode2) console_notify(L"return code not matched\n");
 	uint16_t tpm_PCRreadTag=(uint16_t)CmdOut[0];
+	uint16_t tpm_PCRreadTag2=(uint16_t)Ohdr->tag;
+	if(tpm_PCRreadTag != tpm_PCRreadTag2) console_notify(L"tag not matched\n");
 	uint8_t *pcr_value;
 	//memset(pcr_value,0,sizeof(pcr_value));
 
 	int valsize =0;
 
-	pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing)];
+	pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing_hdr)];
 
 	//pcrReadOutgoing->returnCode ;
-//	CHAR16 msgbuf[9] = {0,};
-//	memset(msgbuf, 0, sizeof(msgbuf));
-///	itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
-//	console_notify(msgbuf);
+	CHAR16 msgbuf[9] = {0,};
+	memset(msgbuf, 0, sizeof(msgbuf));
+	tpm_itochar((UINT8*)&tpm_PCRreadReturnCode, msgbuf, 4);
+	console_notify(msgbuf);
+
+	memset(msgbuf, 0, sizeof(msgbuf));
+	tpm_itochar((UINT8*)&tpm_PCRreadReturnCode2, msgbuf, 4);
+	console_notify(msgbuf);
+
+
 
 	if( tpm_PCRreadReturnCode != TPM_SUCCESS){
-		if( tpm_PCRreadTag == TPM_BADINDEX ) {
-			console_notify(L"readpcr: bad pcr index\n" );
+		if( tpm_PCRreadTag != swap_bytes16(TPM_TAG_RSP_COMMAND)){
+			console_notify(L"readpcr: wrong tag\n" );
 		}
         console_notify( L"readpcr: bad tpm_PCRreadReturnCode\n" );
 	}
