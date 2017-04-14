@@ -4,7 +4,6 @@
 #include "console.h"
 #include "tpm.h"
 
-
 CHAR16 TPM_itoa64[16] =
 L"0123456789ABCDEF";
 void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length){
@@ -95,65 +94,7 @@ static uint32_t swap_bytes32(UINT32 x){
 
 	return(lb<<16|hb);
 }
-/*
-EFI_STATUS TPM_passTroughToTPM (PassThroughToTPM_InputParamBlock* input, PassThroughToTPM_OutputParamBlock* output)
-{
-	efi_tpm_protocol_t *tpm = NULL;
-	EFI_STATUS status;
 
-	uint32_t inhdrsize = sizeof(*input)-sizeof(input->TPMOperandIn);
-	uint32_t outhdrsize = sizeof(*output)-sizeof(output->TPMOperandOut);
-
-	if(!input){
-		console_notify(L"Unable to locate result\n");
-		return EFI_OUT_OF_RESOURCES;
-	}
-	if(!output){
-		console_notify(L"Unable to locate result\n");
-		return EFI_OUT_OF_RESOURCES;
-	}
-
-	status = LibLocateProtocol(&tpm_guid, (VOID **)&tpm);
-
-	if(status != EFI_SUCCESS){
-		console_notify(L"ERROR! PassThroughToTPM: TPM LCATE FAIL\n");
-		return EFI_NOT_FOUND;
-	} if(!tpm_present(tpm)) {
-			console_notify(L"ERROR! tpm_present(tpm)\n");
-			if (tpm == NULL)
-				perror(L"ERROR! tpm == NULL\n");
-			return EFI_SUCCESS;
-		}
-	}
-
-	if( !tpm_present(tpm)){
-		console_notify(L"PassThroughToTPM: TPM present fail\n");
-		return EFI_NOT_FOUND;
-	}
-
-	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, input-> IPBLength - inhdrsize, input-> TPMOperandIn, output-> OPBLength-outhdrsize, output-> TPMOperandOut);	
-	switch(status){
-		case EFI_SUCCESS:
-			console_notify(L"PassthroughtoTPM: EFI_SUCCESS\n");
- 			return EFI_SUCCESS;
-		case EFI_DEVICE_ERROR:	
-			console_notify(L"PassthroughtoTPM: command failed\n");
-			return status;
-		case EFI_BUFFER_TOO_SMALL:
-			console_notify(L"PassthroughtoTPM: Output buffer too small\n");
-			return status;
-		case EFI_NOT_FOUND:
-			console_notify(L"PassthroughtoTPM: TPM unavailable\n");
-			return status;
-		case EFI_INVALID_PARAMETER:
-			console_notify(L"PassthroughtoTPM: Invalid parameter\n");
-			return status;
-		default:
-			console_notify(L"PassthroughtoTPM: UNKNOWN ERROR\n");
-			return status;
-	}
-}
-*/
 EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result ) 
 {
 	efi_tpm_protocol_t *tpm = NULL;
@@ -176,47 +117,6 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 		return EFI_NOT_FOUND;
 	}
 
-//	PCRReadOutgoing* pcrReadOutgoing = NULL;
-
-/*
-	PassThroughToTPM_InputParamBlock *passThroughInput = NULL;
-	PCRReadIncoming *pcrReadIncoming = NULL;
-	pcrReadIncoming = AllocatePool((uint16_t) sizeof(PCRReadIncoming));
-	PCRReadIncoming Incoming;
-	uint16_t inputlen = sizeof( *passThroughInput ) - sizeof( passThroughInput->TPMOperandIn ) + sizeof( *pcrReadIncoming );
-
-
-	PassThroughToTPM_OutputParamBlock *passThroughOutput = NULL;
-	uint16_t outputlen = sizeof( *passThroughOutput ) - sizeof( passThroughOutput->TPMOperandOut ) + sizeof( *pcrReadOutgoing );
-
-	passThroughInput = AllocatePool( inputlen );
-	if( !passThroughInput ) {
-		console_notify(L"readpcr: memory allocation failed\n" );
-		return EFI_OUT_OF_RESOURCES;
-	}
-
-	passThroughInput->IPBLength = inputlen;
-	passThroughInput->OPBLength = outputlen;
-
-	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
-	Incoming.tag = TPM_TAG_RQU_COMMAND;
-	Incoming.paramSize = sizeof( *pcrReadIncoming );
-	Incoming.ordinal = TPM_ORD_PcrRead;
-	Incoming.pcrIndex = index;
-
-	pcrReadIncoming = &Incoming;
-*/
-/*
-	UINT8 CmdBuf[64];
-	UINT8 CmdOut[64];
-	memset(CmdBuf,0,sizeof(CmdBuf));
-	memset(CmdOut,0,sizeof(CmdOut));
-
-	*(UINT16*)&CmdBuf[0] = swap_bytes16(TPM_TAG_RQU_COMMAND);
-	*(UINT32*)&CmdBuf[4] = swap_bytes32((UINT32)sizeof(PCRReadIncoming) );
-	*(UINT32*)&CmdBuf[8] = swap_bytes32(TPM_ORD_PcrRead);
-	*(UINT32*)&CmdBuf[12]= swap_bytes32(index);
-*/
 	PCRReadIncoming* pcrReadIncoming = NULL;
 	PCRReadOutgoing* pcrReadOutgoing = NULL;
 	pcrReadIncoming = AllocatePool(sizeof(*pcrReadIncoming));
@@ -229,19 +129,7 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 	pcrReadIncoming->tag = swap_bytes16(TPM_TAG_RQU_COMMAND);
 	pcrReadIncoming->paramSize = swap_bytes32( sizeof(PCRReadIncoming) );
 	pcrReadIncoming->ordinal = swap_bytes32(TPM_ORD_PcrRead);
-	pcrReadIncoming->pcrIndex = swap_bytes32(0);
-/*	
-	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
-	TPM_memcpy(pcrReadIncoming, &Incoming, sizeof(Incoming));
-
-	passThroughOutput = AllocatePool( outputlen );
-	if( ! passThroughOutput ) {
-		console_notify(L"readpcr: memory allocation failedi\n");
-		return EFI_OUT_OF_RESOURCES;
-	}
-	status = TPM_passTroughToTPM( passThroughInput, passThroughOutput );
-	free( passThroughInput );
-*/
+	pcrReadIncoming->pcrIndex = swap_bytes32(index);
 
 	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, 
 			sizeof( *pcrReadIncoming), (uint8_t*)pcrReadIncoming, sizeof( *pcrReadOutgoing),(uint8_t*) pcrReadOutgoing);
@@ -251,28 +139,10 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-//	pcrReadOutgoing = (PCRReadOutgoing*)&CmdOut[0];
-
-	//PCRReadOutgoing* Ohdr = (PCRReadOutgoing*)&CmdOut[0];
-	
-	//uint32_t tpm_PCRreadReturnCode = *(uint32_t*)&CmdOut[8];
-	//uint32_t tpm_PCRreadReturnCode2 = Ohdr->returnCode;
 	uint32_t tpm_PCRreadReturnCode = pcrReadOutgoing->returnCode;
-	//if(tpm_PCRreadReturnCode != tpm_PCRreadReturnCode2) console_notify(L"return code not matched\n");
-	//uint16_t tpm_PCRreadTag=(uint16_t)CmdOut[0];
-	//uint16_t tpm_PCRreadTag2=(uint16_t)Ohdr->tag;
 	uint16_t tpm_PCRreadTag=pcrReadOutgoing->tag;
-	//if(tpm_PCRreadTag != tpm_PCRreadTag2) console_notify(L"tag not matched\n");
-	//uint8_t *pcr_value;
-	//memset(pcr_value,0,sizeof(pcr_value));
 
 	int valsize =0;
-
-	//pcr_value = (uint8_t *)&CmdOut[sizeof(PCRReadOutgoing_hdr)];
-
-	//pcrReadOutgoing->returnCode ;
-	CHAR16 testing[40] = {0,};
-	memset(testing, 0, sizeof(testing));
 
 	if( tpm_PCRreadReturnCode != TPM_SUCCESS){
 		if( tpm_PCRreadTag != swap_bytes16(TPM_TAG_RSP_COMMAND)){
@@ -286,9 +156,6 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 	}
 	free( pcrReadOutgoing );
 	free( pcrReadIncoming );
-
-	tpm_itochar(result, testing, 20);
-	console_notify(testing);
 
 	return status;
 }
