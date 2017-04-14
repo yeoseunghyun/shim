@@ -133,20 +133,20 @@ typedef struct {
 	uint32_t paramSize;
 	uint32_t ordinal;
 	uint32_t pcrIndex;
-}PCRReadIncoming;
+} __attribute__ ((packed)) PCRReadIncoming;
 
 typedef struct {
 	uint16_t tag;
 	uint32_t paramSize;
 	uint32_t returnCode;
 	uint8_t pcr_value[20];
-}PCRReadOutgoing;
+} __attribute__ ((packed)) PCRReadOutgoing;
 
 typedef struct {
 	uint16_t tag;
 	uint32_t paramSize;
 	uint32_t returnCode;
-}PCRReadOutgoing_hdr;
+} __attribute__ ((packed)) PCRReadOutgoing_hdr;
 
 struct efi_tpm2_protocol
 {

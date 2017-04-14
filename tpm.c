@@ -221,12 +221,15 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 	PCRReadOutgoing* pcrReadOutgoing = NULL;
 	pcrReadIncoming = AllocatePool(sizeof(*pcrReadIncoming));
 	pcrReadOutgoing = AllocatePool(sizeof(*pcrReadOutgoing));
+	if (pcrReadIncoming == NULL) console_notify(L"MEM Alloc failed\n");
+	if (pcrReadOutgoing == NULL) console_notify(L"MEM Alloc failed\n");
+	memset(pcrReadIncoming, 0, sizeof(*pcrReadIncoming));
+	memset(pcrReadOutgoing, 0, sizeof(*pcrReadOutgoing));
 
 	pcrReadIncoming->tag = swap_bytes16(TPM_TAG_RQU_COMMAND);
 	pcrReadIncoming->paramSize = swap_bytes32( sizeof(PCRReadIncoming) );
 	pcrReadIncoming->ordinal = swap_bytes32(TPM_ORD_PcrRead);
 	pcrReadIncoming->pcrIndex = swap_bytes32(0);
-
 /*	
 	pcrReadIncoming = (PCRReadIncoming *)&(passThroughInput->TPMOperandIn[0]);
 	TPM_memcpy(pcrReadIncoming, &Incoming, sizeof(Incoming));
