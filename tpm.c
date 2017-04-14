@@ -241,7 +241,7 @@ EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result )
 */
 
 	status = uefi_call_wrapper(tpm->pass_through_to_tpm, 5, tpm, 
-			sizeof( *pcrReadIncoming), pcrReadIncoming, sizeof( *pcrReadOutgoing), pcrReadOutgoing);
+			sizeof( *pcrReadIncoming), (uint8_t*)pcrReadIncoming, sizeof( *pcrReadOutgoing),(uint8_t*) pcrReadOutgoing);
 	
 	if( status != EFI_SUCCESS){
 		console_notify(L"readpcr: passThrough fail\n");
