@@ -26,6 +26,9 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <openssl/x509.h>
 #include <openssl/pkcs7.h>
 
+#include "../tpm.h"
+#include "../include/console.h"
+
 //
 // OID ASN.1 Value for SPC_INDIRECT_DATA_OBJID
 //
@@ -93,6 +96,8 @@ AuthenticodeVerify (
   Status       = FALSE;
   Pkcs7        = NULL;
   OrigAuthData = AuthData;
+  
+  CHAR16 msg[41];
 
   //
   // Retrieve & Parse PKCS#7 Data (DER encoding) from Authenticode Signature
@@ -175,6 +180,15 @@ AuthenticodeVerify (
   // defined in Authenticode
   // NOTE: Need to double-check HashLength here!
   //
+
+  console_notify(L"authentication\n");
+  memset(msg, 0, sizeof(msg));
+
+  tpm_itochar(SpcIndirectDataContent+ ContentSize - HashSize,msg,HashSize);
+
+  console_notify(msg);
+
+  
   if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
     //
     // Un-matched PE/COFF Hash Value

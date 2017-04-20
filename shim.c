@@ -389,7 +389,62 @@ static BOOLEAN verify_x509(UINT8 *Cert, UINTN CertSize)
 
 	return TRUE;
 }
+static CHECK_STATUS check_db_cert_in_ram_sha1(EFI_SIGNATURE_LIST *CertList,
+					 UINTN dbsize,
+					 WIN_CERTIFICATE_EFI_PKCS *data,
+					 UINT8 *hash)
+{
+	EFI_SIGNATURE_DATA *Cert;
+	UINTN CertSize;
+	BOOLEAN IsFound = FALSE;
+	EFI_GUID CertType = X509_GUID;
 
+	while ((dbsize > 0) && (dbsize >= CertList->SignatureListSize)) {
+		if (CompareGuid (&CertList->SignatureType, &CertType) == 0) {
+			Cert = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
+			CertSize = CertList->SignatureSize - sizeof(EFI_GUID);
+			if (verify_x509(Cert->SignatureData, CertSize)) {
+				IsFound = AuthenticodeVerify (data->CertData,
+							      data->Hdr.dwLength - sizeof(data->Hdr),
+							      Cert->SignatureData,
+							      CertSize,
+							      hash, SHA1_DIGEST_SIZE);
+				if (IsFound)
+					return DATA_FOUND;
+			} else if (verbose) {
+				console_notify(L"Not a DER encoding x.509 Certificate");
+			}
+		}
+
+		dbsize -= CertList->SignatureListSize;
+		CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize);
+	}
+
+	return DATA_NOT_FOUND;
+}
+
+static CHECK_STATUS check_db_cert_sha1(CHAR16 *dbname, EFI_GUID guid,
+				  WIN_CERTIFICATE_EFI_PKCS *data, UINT8 *hash)
+{
+	CHECK_STATUS rc;
+	EFI_STATUS efi_status;
+	EFI_SIGNATURE_LIST *CertList;
+	UINTN dbsize = 0;
+	UINT8 *db;
+
+	efi_status = get_variable(dbname, &db, &dbsize, guid);
+
+	if (efi_status != EFI_SUCCESS)
+		return VAR_NOT_FOUND;
+
+	CertList = (EFI_SIGNATURE_LIST *)db;
+
+	rc = check_db_cert_in_ram_sha1(CertList, dbsize, data, hash);
+
+	FreePool(db);
+
+	return rc;
+}
 static CHECK_STATUS check_db_cert_in_ram(EFI_SIGNATURE_LIST *CertList,
 					 UINTN dbsize,
 					 WIN_CERTIFICATE_EFI_PKCS *data,
@@ -572,27 +627,7 @@ static EFI_STATUS check_whitelist_pcr (WIN_CERTIFICATE_EFI_PKCS *cert,
 	EFI_GUID shim_var = SHIM_LOCK_GUID;
 
 	if (!ignore_db) {
-		if (check_db_hash(L"db", secure_var, pcrval, SHA256_DIGEST_SIZE,
-					EFI_CERT_SHA256_GUID) == DATA_FOUND) {
-			update_verification_method(VERIFIED_BY_HASH);
-			return EFI_SUCCESS;
-		}
-		/*else {update_verification_method(VERIFIED_BY_HASH);
-		       	return EFI_SUCCESS;
-		}*/
-	
-		if (check_db_hash(L"db", secure_var, sha256hash, SHA256_DIGEST_SIZE,
-					EFI_CERT_SHA256_GUID) == DATA_FOUND) {
-			update_verification_method(VERIFIED_BY_HASH);
-			return EFI_SUCCESS;
-		}
-		if (check_db_hash(L"db", secure_var, sha1hash, SHA1_DIGEST_SIZE,
-					EFI_CERT_SHA1_GUID) == DATA_FOUND) {
-			verification_method = VERIFIED_BY_HASH;
-			update_verification_method(VERIFIED_BY_HASH);
-			return EFI_SUCCESS;
-		}
-		if (cert && check_db_cert(L"db", secure_var, cert, sha256hash)
+		if (cert && check_db_cert_sha1(L"db", secure_var, cert, pcrval)
 					== DATA_FOUND) {
 			verification_method = VERIFIED_BY_CERT;
 			update_verification_method(VERIFIED_BY_CERT);
@@ -600,13 +635,7 @@ static EFI_STATUS check_whitelist_pcr (WIN_CERTIFICATE_EFI_PKCS *cert,
 		}
 	}
 
-	if (check_db_hash(L"MokList", shim_var, sha256hash, SHA256_DIGEST_SIZE,
-			  EFI_CERT_SHA256_GUID) == DATA_FOUND) {
-		verification_method = VERIFIED_BY_HASH;
-		update_verification_method(VERIFIED_BY_HASH);
-		return EFI_SUCCESS;
-	}
-	if (cert && check_db_cert(L"MokList", shim_var, cert, sha256hash) ==
+	if (cert && check_db_cert_sha1(L"MokList", shim_var, cert, pcrval) ==
 				DATA_FOUND) {
 		verification_method = VERIFIED_BY_CERT;
 		update_verification_method(VERIFIED_BY_CERT);
@@ -957,130 +986,6 @@ static EFI_STATUS verify_mok (void) {
 
 	return EFI_SUCCESS;
 }
-/*To use PCR verification*/
-/*
- * Check that the signature is valid and matches the binary
- */
-static EFI_STATUS pcr_verify_buffer (char *data, int datasize,
-			 PE_COFF_LOADER_IMAGE_CONTEXT *context)
-{
-	UINT8 sha256hash[SHA256_DIGEST_SIZE];
-	UINT8 sha1hash[SHA1_DIGEST_SIZE];
-	EFI_STATUS status = EFI_ACCESS_DENIED;
-	WIN_CERTIFICATE_EFI_PKCS *cert = NULL;
-	unsigned int size = datasize;
-
-	if (context->SecDir->Size != 0) {
-		cert = ImageAddress (data, size,
-				     context->SecDir->VirtualAddress);
-
-		if (!cert) {
-			perror(L"Certificate located outside the image\n");
-			return EFI_INVALID_PARAMETER;
-		}
-
-		if (cert->Hdr.wCertificateType !=
-		    WIN_CERT_TYPE_PKCS_SIGNED_DATA) {
-			perror(L"Unsupported certificate type %x\n",
-				cert->Hdr.wCertificateType);
-			return EFI_UNSUPPORTED;
-		}
-	}
-
-	status = generate_hash(data, datasize, context, sha256hash, sha1hash);
-	if (status != EFI_SUCCESS)
-		return status;
-
-	/* Measure the grub binary into the TPM */
-	UINTN strsize 	= sizeof("Second stage bootloader-grub");
-	
-	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8 *)"Second stage bootloader");
-	if (status != EFI_SUCCESS) {
-		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
-		return status;
-	}
-
-	/*
-	 * Check that the MOK database hasn't been modified
-	 */
-	status = verify_mok();
-	if (status != EFI_SUCCESS)
-		return status;
-
-	/*
-	 * Ensure that the binary isn't blacklisted
-	 */
-	status = check_blacklist(cert, sha256hash, sha1hash);
-
-	if (status != EFI_SUCCESS) {
-		perror(L"Binary is blacklisted\n");
-		return status;
-	}
-
-	console_notify(L"Hello from READPCR\n");
-
-	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8 *)"Second stage bootloader");
-	if (status != EFI_SUCCESS) {
-		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
-		return status;
-	}
-
-	UINT8 pcrval[20]={0,};
-	
-	status = TPM_readpcr(8, pcrval);
-	if(status != EFI_SUCCESS){
-		console_notify(L"SHIM: TPM_READPCR not successful\n");
-		return status;
-	}
-
-	CHAR16 pcr_msg[41]={0,};	
-	memset(pcr_msg, 0, sizeof(pcr_msg));
-
-	tpm_itochar(pcrval,pcr_msg,20);
-
-	console_notify(L"SHIM: PCR_READ\n");
-	console_notify(pcr_msg);
-
-
-
-//TODO 
-	/*
-	 * Check whether the binary is whitelisted in any of the firmware
-	 * databases
-	 */
-	status = check_whitelist_pcr(cert, sha256hash, sha1hash, pcrval);
-	if (status == EFI_SUCCESS)
-		return status;
-
-	if (cert) {
-		/*
-		 * Check against the shim build key
-		 */
-		if (sizeof(shim_cert) &&
-		    AuthenticodeVerify(cert->CertData,
-			       context->SecDir->Size - sizeof(cert->Hdr),
-			       shim_cert, sizeof(shim_cert), sha256hash,
-			       SHA256_DIGEST_SIZE)) {
-			status = EFI_SUCCESS;
-			return status;
-		}
-
-		/*
-		 * And finally, check against shim's built-in key
-		 */
-		if (vendor_cert_size && AuthenticodeVerify(cert->CertData,
-							context->SecDir->Size - sizeof(cert->Hdr),
-							vendor_cert, vendor_cert_size, sha256hash,
-							SHA256_DIGEST_SIZE)) {
-			status = EFI_SUCCESS;
-			return status;
-		}
-	}
-
-	status = EFI_ACCESS_DENIED;
-
-	return status;
-}
 
 /*
  * Check that the signature is valid and matches the binary
@@ -1139,7 +1044,33 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		perror(L"Binary is blacklisted\n");
 		return status;
 	}
+	/*To use PCR verification*/
+	UINT8 pcrval[20]={0,};
+	
+	status = TPM_readpcr(0, pcrval);
+	if(status != EFI_SUCCESS){
+		console_notify(L"SHIM: TPM_READPCR not successful\n");
+		return status;
+	}
 
+	CHAR16 pcr_msg[41]={0,};	
+	memset(pcr_msg, 0, sizeof(pcr_msg));
+
+	tpm_itochar(pcrval,pcr_msg,20);
+
+	console_notify(L"SHIM: PCR_READ\n");
+	console_notify(pcr_msg);
+
+	/*
+	 *
+	 * 
+	 */
+	status = check_whitelist_pcr(cert, sha256hash, sha1hash, pcrval);
+	if (status != EFI_SUCCESS){
+		console_notify(L"PCR VERIFICATION FAIL\n");
+		return status;
+	}
+	console_notify(L"PCR VERIFICATION SUCCESS\n");
 
 	/*
 	 * Check whether the binary is whitelisted in any of the firmware
@@ -1325,8 +1256,6 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 	 */
 	if (secure_mode ()) {
 		efi_status = verify_buffer(data, datasize, &context);
-		efi_status = pcr_verify_buffer(data, datasize, &context);
-
 
 		if (EFI_ERROR(efi_status)) {
 			console_error(L"Verification failed", efi_status);
@@ -1762,7 +1691,6 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size, UINT8 *pcrval)
 		goto done;
 
 	status = verify_buffer(buffer, size, &context);
-	status = pcr_verify_buffer(buffer, size, &context);
 done:
 	in_protocol = 0;
 	return status;
