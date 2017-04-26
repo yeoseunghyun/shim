@@ -184,7 +184,7 @@ AuthenticodeVerify (
   console_notify(L"authentication\n");
   memset(msg, 0, sizeof(msg));
 
-  tpm_itochar(SpcIndirectDataContent+ ContentSize - HashSize,msg,HashSize);
+  tpm_itochar(SpcIndirectDataContent+ ContentSize - 32,msg,HashSize);
 
   console_notify(msg);
 
