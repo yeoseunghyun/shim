@@ -25,6 +25,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <openssl/objects.h>
 #include <openssl/x509.h>
 #include <openssl/pkcs7.h>
+#include <openssl/asn1t.h>
 
 #include "../tpm.h"
 #include "../include/console.h"
@@ -179,17 +180,37 @@ AuthenticodeVerify (
   // Compare the original file hash value to the digest retrieve from SpcIndirectDataContent
   // defined in Authenticode
   // NOTE: Need to double-check HashLength here!
-  //
+  //i
+  const unsigned char *idc_buf;
+if(HashSize == 20){
+       	console_notify(L"authentication\n");
+	memset(msg, 0, sizeof(msg));
+	tpm_itochar(ImageHash,msg,HashSize);
+	console_notify(msg);
+	int ii=0;
+		idc_buf= ASN1_STRING_data(SpcIndirectDataContent+40);
+	console_notify(idc_buf);
+console_notify(L"ssss\n");
 
-  console_notify(L"authentication\n");
-  memset(msg, 0, sizeof(msg));
+       	while(1){	
+		if(CompareMem(idc_buf,msg,sizeof(msg)) == 0)
+			break;
+		if(ii==sizeof(ContentSize)){
+			console_notify(L"no match\n");
+			break;
+		}
+		ii++;
+       	}
+	memset(msg, 0, sizeof(msg));
+	tpm_itochar(SpcIndirectDataContent+ii,msg,HashSize);
+	console_notify(msg);
 
-  tpm_itochar(SpcIndirectDataContent+ ContentSize - 32,msg,HashSize);
+	memset(msg, 0, sizeof(msg));
+	tpm_itochar(ii,msg,HashSize);
+	console_notify(msg);
+}
 
-  console_notify(msg);
-
-  
-  if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
+if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
     //
     // Un-matched PE/COFF Hash Value
     //
