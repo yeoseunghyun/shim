@@ -29,6 +29,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #include "../tpm.h"
 #include "../include/console.h"
+#include "idc.h"
 
 //
 // OID ASN.1 Value for SPC_INDIRECT_DATA_OBJID
@@ -59,7 +60,7 @@ UINT8 mSpcIndirectOidValue[] = {
                            specification.
   @param[in]  HashSize     Size of Image hash value in bytes.
 
-  @retval  TRUE   The specified Authenticode Signature is valid.
+  @nretval  TRUE   The specified Authenticode Signature is valid.
   @retval  FALSE  Invalid Authenticode Signature.
 
 **/
@@ -82,7 +83,7 @@ AuthenticodeVerify (
   UINT8        Asn1Byte;
   UINTN        ContentSize;
   UINT8        *SpcIndirectDataOid;
-
+  UINT8 *test;
   //
   // Check input parameters.
   //
@@ -136,6 +137,7 @@ AuthenticodeVerify (
 
   SpcIndirectDataContent = (UINT8 *)(Pkcs7->d.sign->contents->d.other->value.asn1_string->data);
 
+  test = (UINT8 *)(Pkcs7->d.sign->contents->d.other->value.asn1_string);
   //
   // Retrieve the SEQUENCE data size from ASN.1-encoded SpcIndirectDataContent.
   //
@@ -180,20 +182,27 @@ AuthenticodeVerify (
   // Compare the original file hash value to the digest retrieve from SpcIndirectDataContent
   // defined in Authenticode
   // NOTE: Need to double-check HashLength here!
-  //i
-  const unsigned char *idc_buf;
+const unsigned char *buf, *idcbuf;
+        ASN1_STRING *str;
+	        IDC *idc;
+		
+		/* extract the idc from the signed PKCS7 'other' data */
+	       	str =Pkcs7->d.sign->contents->d.other->value.asn1_string;
+		idcbuf = buf = ASN1_STRING_data(str);
+		idc = d2i_IDC(NULL, &buf, ASN1_STRING_length(str));
+str = idc->digest->digest;
+buf = ASN1_STRING_data(str);
+
+console_notify(buf);
+
 if(HashSize == 20){
        	console_notify(L"authentication\n");
 	memset(msg, 0, sizeof(msg));
 	tpm_itochar(ImageHash,msg,HashSize);
 	console_notify(msg);
 	int ii=0;
-		idc_buf= ASN1_STRING_data(SpcIndirectDataContent+40);
-	console_notify(idc_buf);
-console_notify(L"ssss\n");
-
        	while(1){	
-		if(CompareMem(idc_buf,msg,sizeof(msg)) == 0)
+		if(CompareMem(test,ImageHash,sizeof(msg)) == 0)
 			break;
 		if(ii==sizeof(ContentSize)){
 			console_notify(L"no match\n");
