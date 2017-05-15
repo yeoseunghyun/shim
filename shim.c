@@ -1044,41 +1044,40 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		perror(L"Binary is blacklisted\n");
 		return status;
 	}
-	/*To use PCR verification*/
-	UINT8 pcrval[20]={0,};
 	
-	status = TPM_readpcr(0, pcrval);
-	if(status != EFI_SUCCESS){
-		console_notify(L"SHIM: TPM_READPCR not successful\n");
-		return status;
-	}
-
-	CHAR16 pcr_msg[41]={0,};	
-	memset(pcr_msg, 0, sizeof(pcr_msg));
-
-	tpm_itochar(pcrval,pcr_msg,20);
-
-	console_notify(L"SHIM: PCR_READ\n");
-	console_notify(pcr_msg);
-
-	/*
-	 *
-	 * 
-	 */
-	status = check_whitelist_pcr(cert, sha256hash, sha1hash, pcrval);
-	if (status != EFI_SUCCESS){
-		console_notify(L"PCR VERIFICATION FAIL\n");
-		return status;
-	}
-	console_notify(L"PCR VERIFICATION SUCCESS\n");
-
 	/*
 	 * Check whether the binary is whitelisted in any of the firmware
 	 * databases
 	 */
 	status = check_whitelist(cert, sha256hash, sha1hash);
-	if (status == EFI_SUCCESS)
+	if (status != EFI_SUCCESS){
+		/*To use PCR verification*/
+		UINT8 pcrval[20]={0,};
+	
+		status = TPM_readpcr(0, pcrval);
+		if(status != EFI_SUCCESS){
+			console_notify(L"SHIM: TPM_READPCR not successful\n");
+			return status;
+		}
+		CHAR16 pcr_msg[41]={0,};	
+		memset(pcr_msg, 0, sizeof(pcr_msg));
+		tpm_itochar(pcrval,pcr_msg,20);
+		console_notify(L"SHIM: PCR_READ\n");
+		console_notify(pcr_msg);
+		
+		status = check_whitelist_pcr(cert, sha256hash, sha1hash, pcrval);
+		if (status == EFI_SUCCESS){
+			console_notify(L"PCR VERIFICATION SUCCESS\n");
+			return status;
+		}
+		else {  
+			console_notify(L"PCR VERIFICATION FAIL\n");
+			return status;
+		}
+	}
+	else
 		return status;
+
 
 	if (cert) {
 		/*
@@ -1675,7 +1674,7 @@ error:
  * Protocol entry point. If secure boot is enabled, verify that the provided
  * buffer is signed with a trusted key.
  */
-EFI_STATUS shim_verify (void *buffer, UINT32 size, UINT8 *pcrval)
+EFI_STATUS shim_verify (void *buffer, UINT32 size)
 {
 	EFI_STATUS status = EFI_SUCCESS;
 	PE_COFF_LOADER_IMAGE_CONTEXT context;

@@ -26,6 +26,11 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <openssl/x509.h>
 #include <openssl/pkcs7.h>
 #include <openssl/asn1t.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+
+
 
 #include "../tpm.h"
 #include "../include/console.h"
@@ -100,8 +105,10 @@ AuthenticodeVerify (
   OrigAuthData = AuthData;
   
   CHAR16 msg[41];
+  CHAR16 msg2[81];
+  CHAR16 msg3[81];
 
-  //
+ //
   // Retrieve & Parse PKCS#7 Data (DER encoding) from Authenticode Signature
   //
   Temp  = AuthData;
@@ -134,10 +141,8 @@ AuthenticodeVerify (
     goto _Exit;
   }
 
-
   SpcIndirectDataContent = (UINT8 *)(Pkcs7->d.sign->contents->d.other->value.asn1_string->data);
 
-  test = (UINT8 *)(Pkcs7->d.sign->contents->d.other->value.asn1_string);
   //
   // Retrieve the SEQUENCE data size from ASN.1-encoded SpcIndirectDataContent.
   //
@@ -182,44 +187,55 @@ AuthenticodeVerify (
   // Compare the original file hash value to the digest retrieve from SpcIndirectDataContent
   // defined in Authenticode
   // NOTE: Need to double-check HashLength here!
-const unsigned char *buf, *idcbuf;
-        ASN1_STRING *str;
-	        IDC *idc;
+
+  /* PCR check Hash Size == sha1digest ==20*/
+  
+  if(HashSize == 20){
+	  unsigned char *buf, *idcbuf;
+	  ASN1_STRING *str;
+	  IDC *idc;
+	  
+	  /* extract the idc from the signed PKCS7 'other' data */
+	  str =Pkcs7->d.sign->contents->d.other->value.asn1_string;
+	  idcbuf = buf = ASN1_STRING_data(str);
+	  idc = d2i_IDC(NULL, &buf, ASN1_STRING_length(str));
+
+	  if(idc){
+		  const unsigned char *test;
+		  ASN1_STRING *str2;
+		  UINT8 testbuf[sizeof(ImageHash)];
+	 
+		  memset(msg, 0, sizeof(msg));
+		  tpm_itochar(ImageHash,msg,20);
+  		  console_notify(msg);
+
+		  if (OBJ_cmp(idc->digest->alg->algorithm, OBJ_nid2obj(NID_sha256))){
+			  console_notify(L"err msg Invalid algorithm type\n");
+		  }
+
+		  str2 = idc->digest->digest;
+ 		  test = ASN1_STRING_data(str2);
+
+		  memset(msg, 0, sizeof(msg));
+		  tpm_itochar(testbuf,msg,20);
+  		  console_notify(msg);
 		
-		/* extract the idc from the signed PKCS7 'other' data */
-	       	str =Pkcs7->d.sign->contents->d.other->value.asn1_string;
-		idcbuf = buf = ASN1_STRING_data(str);
-		idc = d2i_IDC(NULL, &buf, ASN1_STRING_length(str));
-str = idc->digest->digest;
-buf = ASN1_STRING_data(str);
-
-console_notify(buf);
-
-if(HashSize == 20){
-       	console_notify(L"authentication\n");
-	memset(msg, 0, sizeof(msg));
-	tpm_itochar(ImageHash,msg,HashSize);
-	console_notify(msg);
-	int ii=0;
-       	while(1){	
-		if(CompareMem(test,ImageHash,sizeof(msg)) == 0)
-			break;
-		if(ii==sizeof(ContentSize)){
-			console_notify(L"no match\n");
-			break;
-		}
-		ii++;
-       	}
-	memset(msg, 0, sizeof(msg));
-	tpm_itochar(SpcIndirectDataContent+ii,msg,HashSize);
-	console_notify(msg);
-
-	memset(msg, 0, sizeof(msg));
-	tpm_itochar(ii,msg,HashSize);
-	console_notify(msg);
-}
-
-if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
+		  console_notify(L"Compare start\n");
+ 		  if(CompareMem(test,msg3,sizeof(msg))==0){
+			  console_notify(L"MATCH! :)\n");
+			  Status = 1;
+			  goto _Exit;
+		  }
+		  else if(CompareMem(testbuf,ImageHash,HashSize)==0){
+			  console_notify(L"MATCH! :)\n");
+			  Status = 1;
+			  goto _Exit;
+		  }
+		  else
+			  console_notify(L"UNMATCH :(\n");
+	  }
+  }
+  else if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize , ImageHash, HashSize) != 0) {
     //
     // Un-matched PE/COFF Hash Value
     //
