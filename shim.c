@@ -999,6 +999,9 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	WIN_CERTIFICATE_EFI_PKCS *cert = NULL;
 	unsigned int size = datasize;
 
+
+	static int grub_hash_flag =0;
+
 	if (context->SecDir->Size != 0) {
 		cert = ImageAddress (data, size,
 				     context->SecDir->VirtualAddress);
@@ -1020,14 +1023,23 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	if (status != EFI_SUCCESS)
 		return status;
 
-	/* Measure the grub binary into the TPM */
+	/*
+	 * Measure the grub binary into the TPM. 
+	 * used grub_hash_flag in odrder to record
+	 * hashes to PCR9 in order to use PCR8 for
+	 * verifictaion
+	 */
+
 	UINTN strsize 	= sizeof("Second stage bootloader-grub");
-	status = tpm_log_event(sha1hash, strsize, 8, (const CHAR8 *)"Second stage bootloader");
+	status = tpm_log_event(sha1hash, strsize, 8+grub_hash_flag, (const CHAR8 *)"Second stage bootloader");
 	if (status != EFI_SUCCESS) {
 		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
 		return status;
 	}
 
+	grub_hash_flag++;
+	if(grub_hash_flag>1)
+		grub_hash_flag=1;
 	/*
 	 * Check that the MOK database hasn't been modified
 	 */
@@ -1054,7 +1066,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		/*To use PCR verification*/
 		UINT8 pcrval[20]={0,};
 	
-		status = TPM_readpcr(0, pcrval);
+		status = TPM_readpcr(8, pcrval);
 		if(status != EFI_SUCCESS){
 			console_notify(L"SHIM: TPM_READPCR not successful\n");
 			return status;
@@ -1717,7 +1729,6 @@ static EFI_STATUS shim_hash (char *data, int datasize,
 
 	return status;
 }
-
 static EFI_STATUS shim_read_header(void *data, unsigned int datasize,
 				   PE_COFF_LOADER_IMAGE_CONTEXT *context)
 {
