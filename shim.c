@@ -1066,7 +1066,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		/*To use PCR verification*/
 		UINT8 pcrval[20]={0,};
 	
-		status = TPM_readpcr(8, pcrval);
+		status = TPM_readpcr(9, pcrval);
 		if(status != EFI_SUCCESS){
 			console_notify(L"SHIM: TPM_READPCR not successful\n");
 			return status;
@@ -1682,12 +1682,36 @@ error:
 	return efi_status;
 }
 
+
+
+CHAR16 ttt[16] = L"01234567abcdef";
+void itochar_test(UINT8* input,CHAR16* output, UINT32 length){
+	int i=0;
+	int len=length;
+	UINT8 tmp = 0;
+	UINT8 a,b;
+	int c=0;
+	for(i=0;i<len;i++){
+		tmp=input[i];
+		a = tmp & 0xf0;
+		a= a>>4;
+		b=tmp& 0x0f;
+		output[c++]= ttt[a];
+		output[c++]=ttt[b];
+	}
+}
+
 /*
  * Protocol entry point. If secure boot is enabled, verify that the provided
  * buffer is signed with a trusted key.
  */
 EFI_STATUS shim_verify (void *buffer, UINT32 size)
 {
+
+	CHAR16 testingbuff[size*2+1];
+	itochar_test(buffer,testingbuff,size);
+	console_notify(testingbuff);
+
 	EFI_STATUS status = EFI_SUCCESS;
 	PE_COFF_LOADER_IMAGE_CONTEXT context;
 

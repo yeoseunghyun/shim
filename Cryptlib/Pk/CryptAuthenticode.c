@@ -182,15 +182,24 @@ AuthenticodeVerify (
   // Compare the original file hash value to the digest retrieve from SpcIndirectDataContent
   // defined in Authenticode
   // NOTE: Need to double-check HashLength here!
-  
-  if (CompareMem (SpcIndirectDataContent + ContentSize - 32 , ImageHash, HashSize) != 0) {
-	console_notify(L"PCR UNMATCHED :(  \n");
-    //
-    // Un-matched PE/COFF Hash Value
-    //
-    goto _Exit;
-  }
- 
+
+ if(HashSize==20){
+	 if (CompareMem (SpcIndirectDataContent + ContentSize - 32 , ImageHash, HashSize) != 0) {
+		 console_notify(L"PCR UNMATCHED :(  \n");
+		 //
+		 // Un-matched PE/COFF Hash Value
+		 //
+		 goto _Exit;
+	 }
+ }else{
+	 if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize , ImageHash, HashSize) != 0) {
+		 //
+		 // Un-matched PE/COFF Hash Value
+		 //
+		 goto _Exit;
+	 }
+ }
+
   //
   // Verifies the PKCS#7 Signed Data in PE/COFF Authenticode Signature
   //
