@@ -1032,6 +1032,11 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 
 	UINTN strsize 	= sizeof("Second stage bootloader-grub");
 	status = tpm_log_event(sha1hash, strsize, 8+grub_hash_flag, (const CHAR8 *)"Second stage bootloader");
+	if(status == EFI_SUCCESS){
+	while(1){
+		perror(L"TPM LOG EVENT: in shim log event passed");
+		console_notify(L"TPM LOG EVENT SHIM ACTIVE");
+	}}
 	if (status != EFI_SUCCESS) {
 		perror(L"TPM_LOG_EVENT:shim second stage bootloader\n");
 		return status;
