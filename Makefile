@@ -40,14 +40,10 @@ OBJCOPY_GTE224	= $(shell expr `$(OBJCOPY) --version |grep ^"GNU objcopy" | sed '
 SUBDIRS		= $(TOPDIR)/Cryptlib $(TOPDIR)/lib
 
 EFI_INCLUDE	:= /usr/include/efi
-<<<<<<< HEAD
-EFI_INCLUDES	= -nostdinc -ICryptlib -ICryptlib/Include -I$(EFI_INCLUDE) -I$(EFI_INCLUDE)/$(ARCH) -I$(EFI_INCLUDE)/protocol -I$(shell pwd)/include
-EFI_PATH	:= /usr/lib64
-=======
+EFI_PATH	:= /usr/lib
 EFI_INCLUDES	= -nostdinc -I$(TOPDIR)/Cryptlib -I$(TOPDIR)/Cryptlib/Include \
 		  -I$(EFI_INCLUDE) -I$(EFI_INCLUDE)/$(ARCH) -I$(EFI_INCLUDE)/protocol \
 		  -I$(TOPDIR)/include -iquote $(TOPDIR) -iquote $(shell pwd)
->>>>>>> 5e827007b3d95c4ce999422462248f5e7d3f270f
 
 LIB_GCC		= $(shell $(CC) -print-libgcc-file-name)
 EFI_LIBS	= -lefi -lgnuefi --start-group Cryptlib/libcryptlib.a Cryptlib/OpenSSL/libopenssl.a --end-group $(LIB_GCC) 
@@ -78,7 +74,7 @@ ifeq ($(ARCH),x86_64)
 		   -maccumulate-outgoing-args \
 		   -DEFI_FUNCTION_WRAPPER -DGNU_EFI_USE_MS_ABI \
 		   -DNO_BUILTIN_VA_FUNCS -DMDE_CPU_X64 -DPAGE_SIZE=4096
-	LIBDIR			?= $(prefix)/lib64
+	LIBDIR			?= $(prefix)/lib
 	ARCH_SUFFIX		?= x64
 	ARCH_SUFFIX_UPPER	?= X64
 	ARCH_LDFLAGS		?=
@@ -138,12 +134,6 @@ endif
 
 LDFLAGS		= --hash-style=sysv -nostdlib -znocombreloc -T $(EFI_LDS) -shared -Bsymbolic -L$(EFI_PATH) -L$(LIBDIR) -LCryptlib -LCryptlib/OpenSSL $(EFI_CRT_OBJS) --build-id=sha1 $(ARCH_LDFLAGS)
 
-<<<<<<< HEAD
-TARGET	= shim.efi MokManager.efi.signed fallback.efi.signed
-OBJS	= shim.o netboot.o cert.o replacements.o tpm.o version.o
-KEYS	= shim_cert.h ocsp.* ca.* shim.crt shim.csr shim.p12 shim.pem shim.key shim.cer
-SOURCES	= shim.c shim.h netboot.c include/PeImage.h include/wincert.h include/console.h replacements.c replacements.h tpm.c tpm.h version.c version.h
-=======
 TARGETS	= $(SHIMNAME)
 TARGETS += $(SHIMNAME).debug $(MMNAME).debug $(FBNAME).debug
 ifneq ($(origin ENABLE_SHIM_HASH),undefined)
@@ -158,7 +148,6 @@ endif
 OBJS	= shim.o netboot.o cert.o replacements.o tpm.o version.o errlog.o
 KEYS	= shim_cert.h ocsp.* ca.* shim.crt shim.csr shim.p12 shim.pem shim.key shim.cer
 ORIG_SOURCES	= shim.c shim.h netboot.c include/PeImage.h include/wincert.h include/console.h replacements.c replacements.h tpm.c tpm.h version.h errlog.c
->>>>>>> 5e827007b3d95c4ce999422462248f5e7d3f270f
 MOK_OBJS = MokManager.o PasswordCrypt.o crypt_blowfish.o
 ORIG_MOK_SOURCES = MokManager.c shim.h include/console.h PasswordCrypt.c PasswordCrypt.h crypt_blowfish.c crypt_blowfish.h
 FALLBACK_OBJS = fallback.o tpm.o
