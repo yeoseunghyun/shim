@@ -2,7 +2,7 @@
   C Run-Time Libraries (CRT) Wrapper Implementation for OpenSSL-based
   Cryptographic Library.
 
-Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -22,7 +22,7 @@ FILE  *stdin  = NULL;
 FILE  *stdout = NULL;
 
 typedef
-INTN
+int
 (*SORT_COMPARE)(
   IN  VOID  *Buffer1,
   IN  VOID  *Buffer2
@@ -374,6 +374,11 @@ size_t fread (void *b, size_t c, size_t i, FILE *f)
   return 0;
 }
 
+int fputs (const char *s, FILE *f)
+{
+  return 0;
+}
+
 int fprintf (FILE *f, const char *s, ...)
 {
   return 0;
@@ -419,11 +424,6 @@ int stat (const char *c, struct stat *s)
   return -1;
 }
 
-int strcasecmp (const char *c, const char *s)
-{
-  return 0;
-}
-
 int strncasecmp (const char *c, const char *s, size_t l)
 {
   return 0;
@@ -435,6 +435,11 @@ void syslog (int a, const char *c, ...)
 }
 
 ssize_t write (int f, const void *b, size_t l)
+{
+  return 0;
+}
+
+int printf (char const *fmt, ...)
 {
   return 0;
 }

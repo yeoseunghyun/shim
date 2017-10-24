@@ -868,6 +868,9 @@ void ERR_error_string_n(unsigned long e, char *buf, size_t len)
     const char *ls, *fs, *rs;
     unsigned long l, f, r;
 
+    if (len == 0)
+        return;
+
     l = ERR_GET_LIB(e);
     f = ERR_GET_FUNC(e);
     r = ERR_GET_REASON(e);
@@ -1072,12 +1075,7 @@ void ERR_set_error_data(char *data, int flags)
     es->err_data_flags[i] = flags;
 }
 
-/* Add EFIAPI for UEFI version. */
-#if defined(OPENSSL_SYS_UEFI)
-void EFIAPI ERR_add_error_data(int num, ...)
-#else
 void ERR_add_error_data(int num, ...)
-#endif
 {
     va_list args;
     va_start(args, num);

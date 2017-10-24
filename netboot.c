@@ -33,10 +33,8 @@
  * Corporation.
  */
 
-#include <efi.h>
-#include <efilib.h>
-#include <string.h>
 #include "shim.h"
+#include <string.h>
 #include "netboot.h"
 #include "str.h"
 
@@ -53,24 +51,6 @@ typedef struct {
 	UINT16 Length;
 	UINT8 Data[1];
 } EFI_DHCP6_PACKET_OPTION;
-
-static CHAR8 *
-translate_slashes(char *str)
-{
-	int i;
-	int j;
-	if (str == NULL)
-		return (CHAR8 *)str;
-
-	for (i = 0, j = 0; str[i] != '\0'; i++, j++) {
-		if (str[i] == '\\') {
-			str[j] = '/';
-			if (str[i+1] == '\\')
-				i++;
-		}
-	}
-	return (CHAR8 *)str;
-}
 
 /*
  * usingNetboot

@@ -1,6 +1,6 @@
 #/bin/sh
 DIR=$1
-version="1.0.2d"
+version="1.0.2k"
 
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/e_os.h e_os.h
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/constant_time_locl.h crypto/constant_time_locl.h
@@ -25,9 +25,6 @@ install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/o_fips.c cr
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/o_init.c crypto/o_init.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/fips_ers.c crypto/fips_ers.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/LPdir_nyi.c crypto/LPdir_nyi.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/md4/md4_locl.h crypto/md4/md4_locl.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/md4/md4_dgst.c crypto/md4/md4_dgst.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/md4/md4_one.c crypto/md4/md4_one.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/md5/md5_locl.h crypto/md5/md5_locl.h
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/md5/md5_dgst.c crypto/md5/md5_dgst.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/md5/md5_one.c crypto/md5/md5_one.c
@@ -41,37 +38,6 @@ install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/sha/sha512.
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/hmac/hmac.c crypto/hmac/hmac.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/hmac/hm_ameth.c crypto/hmac/hm_ameth.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/hmac/hm_pmeth.c crypto/hmac/hm_pmeth.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/des_locl.h crypto/des/des_locl.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/des_ver.h crypto/des/des_ver.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/spr.h crypto/des/spr.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/rpc_des.h crypto/des/rpc_des.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/set_key.c crypto/des/set_key.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ecb_enc.c crypto/des/ecb_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/cbc_enc.c crypto/des/cbc_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ncbc_enc.c crypto/des/ncbc_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ecb3_enc.c crypto/des/ecb3_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/cfb64enc.c crypto/des/cfb64enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/cfb64ede.c crypto/des/cfb64ede.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/cfb_enc.c crypto/des/cfb_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ofb64ede.c crypto/des/ofb64ede.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/enc_read.c crypto/des/enc_read.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/enc_writ.c crypto/des/enc_writ.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ofb64enc.c crypto/des/ofb64enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ofb_enc.c crypto/des/ofb_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/str2key.c crypto/des/str2key.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/pcbc_enc.c crypto/des/pcbc_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/qud_cksm.c crypto/des/qud_cksm.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/rand_key.c crypto/des/rand_key.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/des_enc.c crypto/des/des_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/fcrypt_b.c crypto/des/fcrypt_b.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/fcrypt.c crypto/des/fcrypt.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/xcbc_enc.c crypto/des/xcbc_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/rpc_enc.c crypto/des/rpc_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/cbc_cksm.c crypto/des/cbc_cksm.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/ede_cbcm_enc.c crypto/des/ede_cbcm_enc.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/des_old.c crypto/des/des_old.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/des_old2.c crypto/des/des_old2.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/des/read2pwd.c crypto/des/read2pwd.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/rc4/rc4_locl.h crypto/rc4/rc4_locl.h
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/rc4/rc4_enc.c crypto/rc4/rc4_enc.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/rc4/rc4_skey.c crypto/rc4/rc4_skey.c
@@ -469,25 +435,6 @@ install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ocsp/ocsp_s
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ocsp/ocsp_prn.c crypto/ocsp/ocsp_prn.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ocsp/ocsp_vfy.c crypto/ocsp/ocsp_vfy.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ocsp/ocsp_err.c crypto/ocsp/ocsp_err.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ui/ui_locl.h crypto/ui/ui_locl.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ui/ui_lib.c crypto/ui/ui_lib.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ui/ui_util.c crypto/ui/ui_util.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ui/ui_compat.c crypto/ui/ui_compat.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/krb5/krb5_asn.c crypto/krb5/krb5_asn.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/pqueue/pqueue.h crypto/pqueue/pqueue.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/pqueue/pqueue.c crypto/pqueue/pqueue.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts.h crypto/ts/ts.h
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_err.c crypto/ts/ts_err.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_req_utils.c crypto/ts/ts_req_utils.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_req_print.c crypto/ts/ts_req_print.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_rsp_utils.c crypto/ts/ts_rsp_utils.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_rsp_print.c crypto/ts/ts_rsp_print.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_rsp_sign.c crypto/ts/ts_rsp_sign.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_rsp_verify.c crypto/ts/ts_rsp_verify.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_verify_ctx.c crypto/ts/ts_verify_ctx.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_lib.c crypto/ts/ts_lib.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_conf.c crypto/ts/ts_conf.c
-install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/ts/ts_asn1.c crypto/ts/ts_asn1.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/cmac/cmac.c crypto/cmac/cmac.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/cmac/cm_ameth.c crypto/cmac/cm_ameth.c
 install -D $DIR/CryptoPkg/Library/OpensslLib/openssl-$version/crypto/cmac/cm_pmeth.c crypto/cmac/cm_pmeth.c

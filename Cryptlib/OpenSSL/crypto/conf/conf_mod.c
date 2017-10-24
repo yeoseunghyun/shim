@@ -159,6 +159,7 @@ int CONF_modules_load(const CONF *cnf, const char *appname,
 
 }
 
+#ifndef OPENSSL_NO_STDIO
 int CONF_modules_load_file(const char *filename, const char *appname,
                            unsigned long flags)
 {
@@ -194,6 +195,7 @@ int CONF_modules_load_file(const char *filename, const char *appname,
 
     return ret;
 }
+#endif
 
 static int module_run(const CONF *cnf, char *name, char *value,
                       unsigned long flags)
@@ -288,6 +290,10 @@ static CONF_MODULE *module_add(DSO *dso, const char *name,
 
     tmod->dso = dso;
     tmod->name = BUF_strdup(name);
+    if (tmod->name == NULL) {
+        OPENSSL_free(tmod);
+        return NULL;
+    }
     tmod->init = ifunc;
     tmod->finish = ffunc;
     tmod->links = 0;

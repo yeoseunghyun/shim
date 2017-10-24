@@ -104,6 +104,7 @@ static int send_bio_chars(void *arg, const void *buf, int len)
     return 1;
 }
 
+#ifndef OPENSSL_NO_FP_API
 static int send_fp_chars(void *arg, const void *buf, int len)
 {
     if (!arg)
@@ -112,6 +113,7 @@ static int send_fp_chars(void *arg, const void *buf, int len)
         return 0;
     return 1;
 }
+#endif
 
 typedef int char_io (void *arg, const void *buf, int len);
 
@@ -337,7 +339,7 @@ static const signed char tag2nbyte[] = {
     -1, -1, -1, -1, -1,         /* 5-9 */
     -1, -1, 0, -1,              /* 10-13 */
     -1, -1, -1, -1,             /* 15-17 */
-    -1, 1, 1,                   /* 18-20 */
+    1, 1, 1,                    /* 18-20 */
     -1, 1, 1, 1,                /* 21-24 */
     -1, 1, -1,                  /* 25-27 */
     4, -1, 2                    /* 28-30 */

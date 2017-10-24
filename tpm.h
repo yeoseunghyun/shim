@@ -1,22 +1,19 @@
+#include <efilib.h>
+
 #define EFI_TPM_GUID {0xf541796d, 0xa62e, 0x4954, {0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd }};
 #define EFI_TPM2_GUID {0x607f766c, 0x7455, 0x42be, {0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f }};
 
-/* Command return codes */
-#define TPM_BASE 0x0
-#define TPM_SUCCESS TPM_BASE
-#define TPM_AUTHFAIL (TPM_BASE + 0x1)
-#define TPM_BADINDEX (TPM_BASE + 0x2)
+#define TPM_ALG_SHA 0x00000004
+#define EV_IPL      0x0000000d
 
-#define TPM_ORD_PcrRead  ((UINT32)0x00000015)
-#define TPM_TAG_RQU_COMMAND 193
-#define TPM_TAG_RSP_COMMAND 196
-
-void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length);
-
-EFI_STATUS TPM_readpcr( const UINT32 index, UINT8* result);
-
-EFI_STATUS tpm_log_event(const UINT8 *buf, UINTN size, UINT8 pcr,
+EFI_STATUS tpm_log_event(EFI_PHYSICAL_ADDRESS buf, UINTN size, UINT8 pcr,
 			 const CHAR8 *description);
+EFI_STATUS fallback_should_prefer_reset(void);
+
+EFI_STATUS tpm_log_pe(EFI_PHYSICAL_ADDRESS buf, UINTN size, UINT8 *sha1hash,
+		      UINT8 pcr);
+
+EFI_STATUS tpm_measure_variable(CHAR16 *dbname, EFI_GUID guid, UINTN size, void *data);
 
 typedef struct {
   uint8_t Major;
@@ -41,6 +38,14 @@ typedef struct _TCG_PCR_EVENT {
   uint32_t EventSize;
   uint8_t  Event[1];
 } TCG_PCR_EVENT;
+
+typedef struct _EFI_IMAGE_LOAD_EVENT {
+  EFI_PHYSICAL_ADDRESS ImageLocationInMemory;
+  UINTN ImageLengthInMemory;
+  UINTN ImageLinkTimeAddress;
+  UINTN LengthOfDevicePath;
+  EFI_DEVICE_PATH DevicePath[1];
+} EFI_IMAGE_LOAD_EVENT;
 
 struct efi_tpm_protocol
 {
@@ -75,28 +80,33 @@ struct efi_tpm_protocol
 
 typedef struct efi_tpm_protocol efi_tpm_protocol_t;
 
+typedef uint32_t TREE_EVENT_LOG_BITMAP;
+
 typedef uint32_t EFI_TCG2_EVENT_LOG_BITMAP;
 typedef uint32_t EFI_TCG2_EVENT_LOG_FORMAT;
 typedef uint32_t EFI_TCG2_EVENT_ALGORITHM_BITMAP;
 
+typedef struct tdTREE_VERSION {
+  uint8_t Major;
+  uint8_t Minor;
+} TREE_VERSION;
+
 typedef struct tdEFI_TCG2_VERSION {
   uint8_t Major;
   uint8_t Minor;
-} __attribute__ ((packed)) EFI_TCG2_VERSION;
+} EFI_TCG2_VERSION;
 
-typedef struct tdEFI_TCG2_BOOT_SERVICE_CAPABILITY_1_0 {
+typedef struct tdTREE_BOOT_SERVICE_CAPABILITY {
   uint8_t Size;
-  EFI_TCG2_VERSION StructureVersion;
-  EFI_TCG2_VERSION ProtocolVersion;
-  EFI_TCG2_EVENT_ALGORITHM_BITMAP HashAlgorithmBitmap;
-  EFI_TCG2_EVENT_LOG_BITMAP SupportedEventLogs;
-  BOOLEAN TPMPresentFlag;
+  TREE_VERSION StructureVersion;
+  TREE_VERSION ProtocolVersion;
+  uint32_t HashAlgorithmBitmap;
+  TREE_EVENT_LOG_BITMAP SupportedEventLogs;
+  BOOLEAN TrEEPresentFlag;
   uint16_t MaxCommandSize;
   uint16_t MaxResponseSize;
   uint32_t ManufacturerID;
-  uint32_t NumberOfPcrBanks;
-  EFI_TCG2_EVENT_ALGORITHM_BITMAP ActivePcrBanks;
-} EFI_TCG2_BOOT_SERVICE_CAPABILITY_1_0;
+} TREE_BOOT_SERVICE_CAPABILITY;
 
 typedef struct tdEFI_TCG2_BOOT_SERVICE_CAPABILITY {
   uint8_t Size;
@@ -110,7 +120,7 @@ typedef struct tdEFI_TCG2_BOOT_SERVICE_CAPABILITY {
   uint32_t ManufacturerID;
   uint32_t NumberOfPcrBanks;
   EFI_TCG2_EVENT_ALGORITHM_BITMAP ActivePcrBanks;
-} __attribute__ ((packed))  EFI_TCG2_BOOT_SERVICE_CAPABILITY;
+} EFI_TCG2_BOOT_SERVICE_CAPABILITY;
 
 typedef uint32_t TCG_PCRINDEX;
 typedef uint32_t TCG_EVENTTYPE;
@@ -128,25 +138,8 @@ typedef struct tdEFI_TCG2_EVENT {
   uint8_t Event[1];
 } __attribute__ ((packed)) EFI_TCG2_EVENT;
 
-typedef struct {
-	uint16_t tag;
-	uint32_t paramSize;
-	uint32_t ordinal;
-	uint32_t pcrIndex;
-} __attribute__ ((packed)) PCRReadIncoming;
-
-typedef struct {
-	uint16_t tag;
-	uint32_t paramSize;
-	uint32_t returnCode;
-	uint8_t pcr_value[20];
-} __attribute__ ((packed)) PCRReadOutgoing;
-
-typedef struct {
-	uint16_t tag;
-	uint32_t paramSize;
-	uint32_t returnCode;
-} __attribute__ ((packed)) PCRReadOutgoing_hdr;
+#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2 0x00000001
+#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_2   0x00000002
 
 struct efi_tpm2_protocol
 {
@@ -177,3 +170,140 @@ struct efi_tpm2_protocol
 };
 
 typedef struct efi_tpm2_protocol efi_tpm2_protocol_t;
+
+typedef UINT32                     TCG_EVENTTYPE;
+
+#define EV_EFI_EVENT_BASE                   ((TCG_EVENTTYPE) 0x80000000)
+#define EV_EFI_VARIABLE_DRIVER_CONFIG       (EV_EFI_EVENT_BASE + 1)
+#define EV_EFI_VARIABLE_BOOT                (EV_EFI_EVENT_BASE + 2)
+#define EV_EFI_BOOT_SERVICES_APPLICATION    (EV_EFI_EVENT_BASE + 3)
+#define EV_EFI_BOOT_SERVICES_DRIVER         (EV_EFI_EVENT_BASE + 4)
+#define EV_EFI_RUNTIME_SERVICES_DRIVER      (EV_EFI_EVENT_BASE + 5)
+#define EV_EFI_GPT_EVENT                    (EV_EFI_EVENT_BASE + 6)
+#define EV_EFI_ACTION                       (EV_EFI_EVENT_BASE + 7)
+#define EV_EFI_PLATFORM_FIRMWARE_BLOB       (EV_EFI_EVENT_BASE + 8)
+#define EV_EFI_HANDOFF_TABLES               (EV_EFI_EVENT_BASE + 9)
+#define EV_EFI_VARIABLE_AUTHORITY           (EV_EFI_EVENT_BASE + 0xE0)
+
+#define PE_COFF_IMAGE 0x0000000000000010
+#define MAX_PCR_INDEX 23
+
+
+// TO READ PCR
+typedef struct {
+	uint16_t tag;
+	uint32_t paramSize;
+	uint32_t ordinal;
+	uint32_t pcrIndex;
+} __attribute__ ((packed)) tpm_PCRReadIncoming;
+
+typedef struct {
+	uint16_t tag;
+	uint32_t paramSize;
+	uint32_t returnCode;
+	uint8_t pcr_value[20];
+} __attribute__ ((packed)) tpm_PCRReadOutgoing;
+
+typedef struct {
+	uint16_t tag;
+	uint32_t paramSize;
+	uint32_t returnCode;
+} __attribute__ ((packed)) tpm_PCRReadOutgoing_hdr;
+
+//TPM2
+
+typedef struct {
+	uint32_t tag;
+	uint32_t paramSize;
+	uint32_t commandCode;
+}TPM2_COMMAND_HEADER;
+
+typedef struct {
+	uint32_t tag;
+	uint32_t paramSize;
+	uint32_t responseCode;
+}TPM2_RESPONSE_HEADER;
+
+#define MAX_PCR 24
+#define PCR_SELECT_MAX ((24 + 7) / 8)
+typedef struct {
+	uint16_t hash;
+	uint8_t sizeofSelect;
+	uint8_t pcrSelect[PCR_SELECT_MAX];
+}TPMS_PCR_SELECTION;
+
+typedef struct {
+	uint32_t count;
+	TPMS_PCR_SELECTION pcrSelections[5];
+}TPML_PCR_SELECTION;
+
+typedef union {
+	uint8_t sha1[20];
+	uint8_t sha256[32];
+	uint8_t sm3_256[32];
+	uint8_t sha384[48];
+	uint8_t sha512[64];
+}TPMU_HA;
+
+typedef struct {
+	UINT16 size;
+	UINT8 buffer[sizeof(TPMU_HA)];
+}TPM2B_DIGEST;
+
+typedef struct {
+	uint16_t size;
+	uint8_t buffer[sizeof(TPMU_HA)];
+}TPM2B_DATA;
+
+typedef struct {
+	uint32_t count;
+	TPM2B_DIGEST digests[8];
+}TPML_DIGEST;
+
+#pragma pack(1)
+typedef struct {
+	TPM2_COMMAND_HEADER Header;
+	TPML_PCR_SELECTION PcrSelectionIn;
+}TPM2_PCR_READ_COMMAND;
+
+typedef struct {
+	TPM2_RESPONSE_HEADER Header;
+	uint32_t PcrUpdateCounter;
+	TPML_PCR_SELECTION PcrSelectionOut;
+	TPML_DIGEST PcrValues;
+}TPM2_PCR_READ_RESPONSE;
+#pragma pack()
+
+typedef struct {
+	uint64_t count;
+	TPML_DIGEST pcr_values[MAX_PCR];
+} tpm2_pcrs;
+
+typedef struct {
+	TPML_PCR_SELECTION pcr_selections;
+	tpm2_pcrs pcrs;
+} pcr_context;
+
+typedef UINT16 TPM_ALG_ID;
+typedef TPM_ALG_ID TPMI_ALG_HASH;
+#define TPM_ALG_SHA1           (TPM_ALG_ID)(0x0004)
+#define TPM_ALG_SHA256         (TPM_ALG_ID)(0x000B)
+
+typedef UINT16 TPM_ST;
+#define TPM_ST_NO_SESSIONS          (TPM_ST)(0x8001)
+
+typedef UINT32 TPM_CC;
+#define TPM_CC_PCR_Read                   (TPM_CC)(0x0000017E)
+
+typedef UINT32 TPM_RC;
+#define TPM_RC_SUCCESS           (TPM_RC)(0x000)
+
+
+
+// prototypes
+EFI_STATUS Tpm2PcrRead ( TPML_PCR_SELECTION *, UINT32 *, TPML_PCR_SELECTION  *, TPML_DIGEST *);
+
+void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length);
+
+EFI_STATUS TPM_readPCR();
+//EFI_STATUS TPM_readPCR( const UINT32 index, UINT8* result);

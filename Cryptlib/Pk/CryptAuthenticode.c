@@ -25,16 +25,11 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <openssl/objects.h>
 #include <openssl/x509.h>
 #include <openssl/pkcs7.h>
-#include <openssl/asn1t.h>
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-
 
 
 #include "../tpm.h"
 #include "../include/console.h"
-#include "idc.h"
+
 
 //
 // OID ASN.1 Value for SPC_INDIRECT_DATA_OBJID
@@ -44,7 +39,7 @@ UINT8 mSpcIndirectOidValue[] = {
   };
 
 /**
-  Verifies the validility of a PE/COFF Authenticode Signature as described in "Windows
+  Verifies the validity of a PE/COFF Authenticode Signature as described in "Windows
   Authenticode Portable Executable Signature Format".
 
   If AuthData is NULL, then return FALSE.
@@ -60,12 +55,12 @@ UINT8 mSpcIndirectOidValue[] = {
   @param[in]  TrustedCert  Pointer to a trusted/root certificate encoded in DER, which
                            is used for certificate chain verification.
   @param[in]  CertSize     Size of the trusted certificate in bytes.
-  @param[in]  ImageHash    Pointer to the original image file hash value. The procudure
+  @param[in]  ImageHash    Pointer to the original image file hash value. The procedure
                            for calculating the image hash value is described in Authenticode
                            specification.
   @param[in]  HashSize     Size of Image hash value in bytes.
 
-  @nretval  TRUE   The specified Authenticode Signature is valid.
+  @retval  TRUE   The specified Authenticode Signature is valid.
   @retval  FALSE  Invalid Authenticode Signature.
 
 **/
@@ -87,8 +82,8 @@ AuthenticodeVerify (
   UINT8        *SpcIndirectDataContent;
   UINT8        Asn1Byte;
   UINTN        ContentSize;
-  UINT8        *SpcIndirectDataOid;
-  UINT8 *test;
+  CONST UINT8  *SpcIndirectDataOid;
+
   //
   // Check input parameters.
   //
@@ -103,7 +98,7 @@ AuthenticodeVerify (
   Status       = FALSE;
   Pkcs7        = NULL;
   OrigAuthData = AuthData;
-  
+
   //
   // Retrieve & Parse PKCS#7 Data (DER encoding) from Authenticode Signature
   //
@@ -125,8 +120,9 @@ AuthenticodeVerify (
   //       some authenticode-specific structure. Use opaque ASN.1 string to retrieve
   //       PKCS#7 ContentInfo here.
   //
-  SpcIndirectDataOid = (UINT8 *)(Pkcs7->d.sign->contents->type->data);
-  if (CompareMem (
+  SpcIndirectDataOid = OBJ_get0_data(Pkcs7->d.sign->contents->type);
+  if (OBJ_length(Pkcs7->d.sign->contents->type) != sizeof(mSpcIndirectOidValue) ||
+      CompareMem (
         SpcIndirectDataOid,
         mSpcIndirectOidValue,
         sizeof (mSpcIndirectOidValue)
@@ -136,6 +132,7 @@ AuthenticodeVerify (
     //
     goto _Exit;
   }
+
 
   SpcIndirectDataContent = (UINT8 *)(Pkcs7->d.sign->contents->d.other->value.asn1_string->data);
 
@@ -179,31 +176,34 @@ AuthenticodeVerify (
     goto _Exit;
   }
 
+  //
   // Compare the original file hash value to the digest retrieve from SpcIndirectDataContent
   // defined in Authenticode
   // NOTE: Need to double-check HashLength here!
-
- if(HashSize==20){
-	 if (CompareMem (SpcIndirectDataContent + ContentSize - 32 , ImageHash, HashSize) != 0) {
-		 console_notify(L"PCR UNMATCHED :(  \n");
-		 //
-		 // Un-matched PE/COFF Hash Value
-		 //
+  //
+  /*
+   * PCR vericication added 
+   * however pcr verification only performed as sha1 length
+   * solve this 
+   */
+  if(HashSize == 20){ //20 is sha1 length
+	 if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
+		 console_notify(L"PCR UNMATCHED :( \n"); //PCR value unmatched 
 		 goto _Exit;
 	 }
- }else{
-	 if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize , ImageHash, HashSize) != 0) {
-		 //
-		 // Un-matched PE/COFF Hash Value
-		 //
-		 goto _Exit;
-	 }
- }
+  }
+  else{
+	  if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
+	      	  //
+	      	  // Un-matched PE/COFF Hash Value
+	      	  //
+	      	  goto _Exit;
+	  }
+  }
 
   //
   // Verifies the PKCS#7 Signed Data in PE/COFF Authenticode Signature
   //
-  
   Status = (BOOLEAN) Pkcs7Verify (OrigAuthData, DataSize, TrustedCert, CertSize, SpcIndirectDataContent, ContentSize);
 
 _Exit:
