@@ -213,13 +213,13 @@ typedef struct {
 //TPM2
 
 typedef struct {
-	uint32_t tag;
+	uint16_t tag;
 	uint32_t paramSize;
 	uint32_t commandCode;
 }TPM2_COMMAND_HEADER;
 
 typedef struct {
-	uint32_t tag;
+	uint16_t tag;
 	uint32_t paramSize;
 	uint32_t responseCode;
 }TPM2_RESPONSE_HEADER;

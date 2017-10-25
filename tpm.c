@@ -29,6 +29,8 @@ VARIABLE_RECORD *measureddata = NULL;
 EFI_GUID tpm_guid = EFI_TPM_GUID;
 EFI_GUID tpm2_guid = EFI_TPM2_GUID;
 
+static efi_tpm2_protocol_t *tpm2;
+static efi_tpm_protocol_t *tpm;
 CHAR16 TPM_itoa64[16]=
 L"0123456789ABCDEF";
 void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length){
@@ -598,15 +600,6 @@ Tpm2PcrRead( TPML_PCR_SELECTION  *PcrSelectionIn,
     TPML_DIGEST            *PcrValuesOut;
     TPM2B_DIGEST           *Digests;
     
-    efi_tpm2_protocol_t *tpm2;
-    efi_tpm_protocol_t *tpm;
-    EFI_TCG2_BOOT_SERVICE_CAPABILITY caps;
-    BOOLEAN old_caps;
-
-    Status = tpm_locate_protocol(&tpm, &tpm2, &old_caps, &caps); 
-     if (EFI_ERROR(Status))
-	     return Status;
-
     // Construct the TPM2 command
     SendBuffer.Header.tag = Swap_Bytes16(TPM_ST_NO_SESSIONS);
     SendBuffer.Header.commandCode = Swap_Bytes32(TPM_CC_PCR_Read);
@@ -642,14 +635,19 @@ Tpm2PcrRead( TPML_PCR_SELECTION  *PcrSelectionIn,
     }
 
     if (Swap_Bytes32(RecvBuffer.Header.responseCode) != TPM_RC_SUCCESS) {
-	uint16_t buf_test[10];
-	uint8_t test=0;
-	test=(uint8_t)Swap_Bytes32(RecvBuffer.Header.responseCode);
-	memset(buf_test,0,sizeof(buf_test));
-	tpm_itochar(&test,buf_test,sizeof(test));	
-        console_notify(L"ERROR Tpm2 ResponseCode [%x]\n");//, Swap_Bytes32(RecvBuffer.Header.responseCode));
-      console_notify(buf_test);
-      	return EFI_NOT_FOUND;
+		uint32_t test = Swap_Bytes32(RecvBuffer.Header.responseCode);
+		test = test & 0x0000FFFF;
+		test = Swap_Bytes32(test);
+
+		CHAR16 buf_test[20];
+		memset(buf_test,0,sizeof(buf_test));
+
+		uint8_t *ptr_test = (uint8_t *)&test;
+		tpm_itochar(ptr_test,buf_test,sizeof(test));
+
+		console_notify(L"ERROR Tpm2 ResponseCode [%x]\n");//, Swap_Bytes32(RecvBuffer.Header.responseCode));
+		console_notify(buf_test);
+		return EFI_NOT_FOUND;
     }
 
 
@@ -712,7 +710,7 @@ Init_Pcr_Selection( pcr_context *context,
 
     s->count = 1;
     s->pcrSelections[0].hash = alg;
-    Set_PcrSelect_Size(&s->pcrSelections[0], 3);
+    Set_PcrSelect_Size(&s->pcrSelections[0], 1);
     Clear_PcrSelect_Bits(&s->pcrSelections[0]);
 
     UINT32 pcr_id;
@@ -728,8 +726,6 @@ TPM_readPCR()
 //TPM_readPCR(uint32_t index, uint8_t *buf)
 {
     EFI_STATUS Status;
-    efi_tpm_protocol_t *tpm;
-    efi_tpm2_protocol_t *tpm2;
     BOOLEAN old_caps;
     EFI_TCG2_BOOT_SERVICE_CAPABILITY caps;
     
@@ -743,7 +739,8 @@ console_notify(L"in TPM_READ PCR\n");
         return Status;
     }
 
-    Init_Pcr_Selection(&context,TPM_ALG_SHA256);
+    Init_Pcr_Selection(&context,TPM_ALG_SHA);
+    //Init_Pcr_Selection(&context,TPM_ALG_SHA256);
     if (Read_Pcr_Values(&context))
         Show_Pcr_Values(&context);
 
