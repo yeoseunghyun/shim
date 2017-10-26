@@ -515,11 +515,11 @@ Update_Pcr_Selections( TPML_PCR_SELECTION *s1,
 
 
 VOID
-Show_Pcr_Values( pcr_context *context) 
+Show_Pcr_Values( pcr_context *context,UINT8 *pcrval) 
 {
     UINT32 vi = 0, di = 0, i, pcr_id, k;
-    UINT8 result[36];
-    CHAR16 pcr_msg[70];
+    UINT8 result[32];
+    CHAR16 pcr_msg[65];
     memset(pcr_msg,0,sizeof(pcr_msg));
     memset(result,0,sizeof(result));
 
@@ -551,8 +551,9 @@ Show_Pcr_Values( pcr_context *context)
     }
     }
 
-    tpm_itochar(result,pcr_msg,36);
+    tpm_itochar(result,pcr_msg,32);
     console_notify (pcr_msg);
+    pcrval = result;
     console_notify (L" PCR READ DONE\n");
 }
 
@@ -704,7 +705,7 @@ Tpm2PcrRead( TPML_PCR_SELECTION  *PcrSelectionIn,
 
 static void 
 Init_Pcr_Selection( pcr_context *context, 
-                  TPMI_ALG_HASH alg)
+                  TPMI_ALG_HASH alg, UINT32 pcrIndex)
 {
     TPML_PCR_SELECTION *s = (TPML_PCR_SELECTION *) &(context->pcr_selections);
 
@@ -713,7 +714,7 @@ Init_Pcr_Selection( pcr_context *context,
     Set_PcrSelect_Size(&s->pcrSelections[0], 3);
     Clear_PcrSelect_Bits(&s->pcrSelections[0]);
 
-    UINT32 pcr_id = 7;
+    UINT32 pcr_id = pcrIndex;
         Set_PcrSelect_Bit(&s->pcrSelections[0], pcr_id);
 /*
     for (pcr_id = 0; pcr_id < MAX_PCR; pcr_id++) {
@@ -725,7 +726,7 @@ Init_Pcr_Selection( pcr_context *context,
 
 
 EFI_STATUS 
-TPM_readPCR()
+TPM_readPCR(UINT32 pcrIndex, UINT8 *pcrval)
 //TPM_readPCR(uint32_t index, uint8_t *buf)
 {
     EFI_STATUS Status;
@@ -742,9 +743,9 @@ TPM_readPCR()
     }
 
 	//Init_Pcr_Selection(&context,TPM_ALG_SHA1);
-	Init_Pcr_Selection(&context,TPM_ALG_SHA256);
+	Init_Pcr_Selection(&context,TPM_ALG_SHA256,pcrIndex);
     if (Read_Pcr_Values(&context))
-        Show_Pcr_Values(&context);
+        Show_Pcr_Values(&context,pcrval);
 
     return Status;
 }

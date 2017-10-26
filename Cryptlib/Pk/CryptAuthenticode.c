@@ -186,7 +186,7 @@ AuthenticodeVerify (
    * however pcr verification only performed as sha1 length
    * solve this 
    */
-  if(HashSize == 20){ //20 is sha1 length
+  if(HashSize == 32){ //20 is sha1 length & 32 is sha256 length
 	 if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
 		 console_notify(L"PCR UNMATCHED :( \n"); //PCR value unmatched 
 		 goto _Exit;

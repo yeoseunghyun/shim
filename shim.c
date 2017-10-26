@@ -631,6 +631,38 @@ static void update_verification_method(verification_method_t method)
 		verification_method = method;
 }
 
+/*PCR verification*/
+
+static EFI_STATUS check_PCR (WIN_CERTIFICATE_EFI_PKCS *cert, UINT8 *pcrval)
+{
+	EFI_GUID secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
+	EFI_GUID shim_var = SHIM_LOCK_GUID;
+
+	if (!ignore_db) {
+		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
+					== DATA_FOUND) {
+			verification_method = VERIFIED_BY_CERT;
+			update_verification_method(VERIFIED_BY_CERT);
+			return EFI_SUCCESS;
+		} else {
+			LogError(L"check_db_cert(db, sha256hash) != DATA_FOUND\n");
+		}
+	}
+
+	if (cert && check_db_cert(L"MokList", shim_var, cert, pcrval) ==
+				DATA_FOUND) {
+		verification_method = VERIFIED_BY_CERT;
+		update_verification_method(VERIFIED_BY_CERT);
+		return EFI_SUCCESS;
+	} else {
+		LogError(L"check_db_cert(MokList, sha256hash) != DATA_FOUND\n");
+	}
+
+	update_verification_method(VERIFIED_BY_NOTHING);
+	return EFI_SECURITY_VIOLATION;
+}
+
+
 /*
  * Check whether the binary signature or hash are present in db or MokList
  */
@@ -1094,7 +1126,27 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		drain_openssl_errors();
 		return status;
 	} else {
-		LogError(L"check_whitelist(): %r\n", status);
+		UINT8 pcrval[32];
+		memset(pcrval,0,sizeof(pcrval));
+		
+		//TPMread	
+		console_notify(L"TPM READ START\n");
+		status = TPM_readPCR(12,pcrval);
+	
+		if(status != EFI_SUCCESS){
+			console_notify(L"TPM_READ FAIL\n");
+			return status;
+		}
+
+		status = check_PCR(cert,pcrval);
+		if(status == EFI_SUCCESS){
+			console_notify(L"PCR VERIFICATION SUCCESS\n");
+			return status;
+		}
+		else{
+			 console_notify(L"PCR VERIFICATION FAIL\n");
+			 return status;
+		}
 	}
 
 	if (cert) {
@@ -1322,14 +1374,6 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 			if (verbose)
 				console_notify(L"Verification succeeded");
 		}
-	}
-//TPMread	
-	console_notify(L"TPM READ START\n");
-	efi_status = TPM_readPCR();
-	
-	if(efi_status != EFI_SUCCESS){
-		console_notify(L"TPM_READ FAIL\n");
-		perror(L"TPM_READ FAIL: %r \n",efi_status);
 	}
 
 	/* The spec says, uselessly, of SectionAlignment:
