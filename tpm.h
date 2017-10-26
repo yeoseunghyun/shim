@@ -260,19 +260,17 @@ typedef struct {
 	TPM2B_DIGEST digests[8];
 }TPML_DIGEST;
 
-#pragma pack(1)
 typedef struct {
 	TPM2_COMMAND_HEADER Header;
 	TPML_PCR_SELECTION PcrSelectionIn;
-}TPM2_PCR_READ_COMMAND;
+}__attribute__ ((packed)) TPM2_PCR_READ_COMMAND;
 
 typedef struct {
 	TPM2_RESPONSE_HEADER Header;
 	uint32_t PcrUpdateCounter;
 	TPML_PCR_SELECTION PcrSelectionOut;
 	TPML_DIGEST PcrValues;
-}TPM2_PCR_READ_RESPONSE;
-#pragma pack()
+}__attribute__ ((packed))TPM2_PCR_READ_RESPONSE;
 
 typedef struct {
 	uint64_t count;

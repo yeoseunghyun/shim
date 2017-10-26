@@ -710,7 +710,7 @@ Init_Pcr_Selection( pcr_context *context,
 
     s->count = 1;
     s->pcrSelections[0].hash = alg;
-    Set_PcrSelect_Size(&s->pcrSelections[0], 1);
+    Set_PcrSelect_Size(&s->pcrSelections[0], 3);
     Clear_PcrSelect_Bits(&s->pcrSelections[0]);
 
     UINT32 pcr_id;
@@ -739,8 +739,8 @@ console_notify(L"in TPM_READ PCR\n");
         return Status;
     }
 
-    Init_Pcr_Selection(&context,TPM_ALG_SHA);
-    //Init_Pcr_Selection(&context,TPM_ALG_SHA256);
+  //  Init_Pcr_Selection(&context,TPM_ALG_SHA);
+    Init_Pcr_Selection(&context,TPM_ALG_SHA256);
     if (Read_Pcr_Values(&context))
         Show_Pcr_Values(&context);
 
