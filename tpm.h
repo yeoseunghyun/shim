@@ -258,13 +258,13 @@ typedef struct {
 	TPM_ST tag;
 	UINT32 paramSize;
 	TPM_CC commandCode;
-}TPM2_COMMAND_HEADER;
+}__attribute__ ((packed)) TPM2_COMMAND_HEADER;
 
 typedef struct {
 	TPM_ST tag;
 	UINT32 paramSize;
 	TPM_RC responseCode;
-}TPM2_RESPONSE_HEADER;
+}__attribute__ ((packed)) TPM2_RESPONSE_HEADER;
 
 typedef struct {
 	TPMI_ALG_HASH hash;
