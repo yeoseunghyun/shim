@@ -515,18 +515,16 @@ Update_Pcr_Selections( TPML_PCR_SELECTION *s1,
 
 
 VOID
-Show_Pcr_Values( pcr_context *context,UINT8 *pcrval) 
+Show_Pcr_Values( pcr_context *context, UINT32 pcrIndex, UINT8 *pcrval) 
 {
     UINT32 vi = 0, di = 0, i, pcr_id, k;
     UINT8 result[32];
-    CHAR16 pcr_msg[65];
-    memset(pcr_msg,0,sizeof(pcr_msg));
     memset(result,0,sizeof(result));
 
     for (i = 0; i < context->pcr_selections.count; i++) {
 
         for ( pcr_id = 0; pcr_id < MAX_PCR; pcr_id++) {
-			pcr_id = 12;
+			if(pcr_id == pcrIndex){
         
 		    if (!Is_PcrSelect_Bit_Set(&context->pcr_selections.pcrSelections[i], pcr_id)) {
                 continue;
@@ -548,13 +546,8 @@ Show_Pcr_Values( pcr_context *context,UINT8 *pcrval)
             if (++vi < context->pcrs.count) {
                 continue;
             }
+    }}
     }
-    }
-
-    tpm_itochar(result,pcr_msg,32);
-    console_notify (pcr_msg);
-    pcrval = result;
-    console_notify (L" PCR READ DONE\n");
 }
 
 
@@ -727,7 +720,6 @@ Init_Pcr_Selection( pcr_context *context,
 
 EFI_STATUS 
 TPM_readPCR(UINT32 pcrIndex, UINT8 *pcrval)
-//TPM_readPCR(uint32_t index, uint8_t *buf)
 {
     EFI_STATUS Status;
     BOOLEAN old_caps;
@@ -741,12 +733,9 @@ TPM_readPCR(UINT32 pcrIndex, UINT8 *pcrval)
     if (EFI_ERROR (Status)) {
         return Status;
     }
-
-	//Init_Pcr_Selection(&context,TPM_ALG_SHA1);
-	Init_Pcr_Selection(&context,TPM_ALG_SHA256,pcrIndex);
+	Init_Pcr_Selection(&context, TPM_ALG_SHA256, pcrIndex);
     if (Read_Pcr_Values(&context))
-        Show_Pcr_Values(&context,pcrval);
+        Show_Pcr_Values(&context, pcrIndex, pcrval);
 
 	return EFI_SUCCESS;
-
 }

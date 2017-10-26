@@ -1373,13 +1373,15 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 		} else {
 			if (verbose)
 				console_notify(L"Verification succeeded");
+		
 			UINT8 pcrval[32];
 			memset(pcrval,0,sizeof(pcrval));
 			CHAR16 msg_t[65];
 			memset(msg_t,0, sizeof(msg_t));
-			TPM_readPCR(7,pcrval);
-			tpm_itochar(pcrval, msg_t, sizeof(pcrval));
+			
+			TPM_readPCR(6,pcrval);
 
+			tpm_itochar(pcrval, msg_t, sizeof(pcrval));
 			console_notify(msg_t);
 		}
 	}
