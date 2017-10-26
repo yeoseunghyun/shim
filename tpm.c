@@ -747,5 +747,6 @@ TPM_readPCR(UINT32 pcrIndex, UINT8 *pcrval)
     if (Read_Pcr_Values(&context))
         Show_Pcr_Values(&context,pcrval);
 
-    return Status;
+	return EFI_SUCCESS;
+
 }

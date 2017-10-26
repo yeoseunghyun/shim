@@ -310,5 +310,5 @@ EFI_STATUS Tpm2PcrRead ( TPML_PCR_SELECTION *, UINT32 *, TPML_PCR_SELECTION  *, 
 
 void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length);
 
-EFI_STATUS TPM_readPCR();
+EFI_STATUS TPM_readPCR(UINT32 pcrIndex, UINT8 *pcrval);
 //EFI_STATUS TPM_readPCR( const UINT32 index, UINT8* result);
