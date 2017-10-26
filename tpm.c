@@ -34,7 +34,6 @@ static efi_tpm_protocol_t *tpm;
 CHAR16 TPM_itoa64[16]=
 L"0123456789ABCDEF";
 void tpm_itochar(UINT8* input, CHAR16* output, uint32_t length){
-//console_notify(L"in tpm_itochar\n");
 
 	int i=0;
 	int len = length;
@@ -518,37 +517,30 @@ Update_Pcr_Selections( TPML_PCR_SELECTION *s1,
 VOID
 Show_Pcr_Values( pcr_context *context) 
 {
-	console_notify(L"in  Show_Pcr_Values \n");
     UINT32 vi = 0, di = 0, i, pcr_id, k;
     UINT8 result[36];
-    CHAR16 pcr_msg[73];
+    CHAR16 pcr_msg[70];
     memset(pcr_msg,0,sizeof(pcr_msg));
     memset(result,0,sizeof(result));
 
     for (i = 0; i < context->pcr_selections.count; i++) {
 
-        //Print(L"\nBank (Algorithm): sha256_only (0x%04x)\n\n",
-          //      context->pcr_selections.pcrSelections[i].hash);
-
         for ( pcr_id = 0; pcr_id < MAX_PCR; pcr_id++) {
-		if (pcr_id == 7){
-            if (!Is_PcrSelect_Bit_Set(&context->pcr_selections.pcrSelections[i], pcr_id)) {
+			pcr_id = 12;
+        
+		    if (!Is_PcrSelect_Bit_Set(&context->pcr_selections.pcrSelections[i], pcr_id)) {
                 continue;
             }
             
             if (vi >= context->pcrs.count || di >= context->pcrs.pcr_values[vi].count) {
-            //    Print(L"ERROR: Trying to output PCR values but nothing more to output\n");
                 return;
             }
 
-           // Print(L"[%02d] ", pcr_id);
             for (k = 0; k < context->pcrs.pcr_values[vi].digests[di].size; k++)
                result[k] = context -> pcrs.pcr_values[vi].digests[di].buffer[k];
-		   // Print(L" %02x", context->pcrs.pcr_values[vi].digests[di].buffer[k]);
-    //        Print(L"\n");
 
-           
-	    if (++di < context->pcrs.pcr_values[vi].count) {
+         
+	    	if (++di < context->pcrs.pcr_values[vi].count) {
                 continue;
             }
 
@@ -556,8 +548,6 @@ Show_Pcr_Values( pcr_context *context)
             if (++vi < context->pcrs.count) {
                 continue;
             }
-        }
-  //      Print(L"\n");
     }
     }
 
@@ -570,7 +560,6 @@ Show_Pcr_Values( pcr_context *context)
 BOOLEAN 
 Read_Pcr_Values( pcr_context *context)
 {
-	console_notify(L"in Read_Pcr_Values\n");
     TPML_PCR_SELECTION pcr_selection_tmp;
     TPML_PCR_SELECTION pcr_selection_out;
     UINT32 pcr_update_counter;
@@ -585,7 +574,6 @@ Read_Pcr_Values( pcr_context *context)
                               &pcr_selection_out,
                               &context->pcrs.pcr_values[context->pcrs.count]);
         if (EFI_ERROR (Status)) {
-        console_notify(L"in Read_Pcr_Values: error 1\n");    //Print(L"ERROR: Tpm2PcrRead failed [%d]\n", Status);
             return FALSE;
         }
 
@@ -597,7 +585,6 @@ Read_Pcr_Values( pcr_context *context)
 
     // hack - this needs to be re-worked
     if (context->pcrs.count >= MAX_PCR && !Unset_PcrSections(&pcr_selection_tmp)) {
-      console_notify(L"in Read_Pcr_Values: error 2\n"); 
 	    //Print(L"ERROR: Reading PCRs. Too much PCRs found [%d]\n", context->pcrs.count);
         return FALSE;
     }
@@ -659,19 +646,8 @@ Tpm2PcrRead( TPML_PCR_SELECTION  *PcrSelectionIn,
     }
 
     if (Swap_Bytes32(RecvBuffer.Header.responseCode) != TPM_RC_SUCCESS) {
-		uint32_t test = Swap_Bytes32(RecvBuffer.Header.responseCode);
-		test = test & 0x0000FFFF;
-		test = Swap_Bytes32(test);
-
-		CHAR16 buf_test[20];
-		memset(buf_test,0,sizeof(buf_test));
-
-		uint8_t *ptr_test = (uint8_t *)&test;
-		tpm_itochar(ptr_test,buf_test,sizeof(test));
-
 		console_notify(L"ERROR Tpm2 ResponseCode [%x]\n");//, Swap_Bytes32(RecvBuffer.Header.responseCode));
-		console_notify(buf_test);
-		// return EFI_NOT_FOUND;
+		return EFI_DEVICE_ERROR;
     }
 
 
@@ -737,7 +713,7 @@ Init_Pcr_Selection( pcr_context *context,
     Set_PcrSelect_Size(&s->pcrSelections[0], 3);
     Clear_PcrSelect_Bits(&s->pcrSelections[0]);
 
-    UINT32 pcr_id = 0;
+    UINT32 pcr_id = 7;
         Set_PcrSelect_Bit(&s->pcrSelections[0], pcr_id);
 /*
     for (pcr_id = 0; pcr_id < MAX_PCR; pcr_id++) {
@@ -759,13 +735,7 @@ TPM_readPCR()
     pcr_context context;
 	memset(&context, 0, sizeof(context));
 
-	CHAR16 temp[] = L"in TPM_readPCR, caps.HashAlgorithmBitmap\n";
-	console_notify(temp);
-
     Status = tpm_locate_protocol(&tpm, &tpm2, &old_caps, &caps);
-	memset(temp, 0, sizeof(temp));
-	tpm_itochar((UINT8 *)&caps.HashAlgorithmBitmap, temp, sizeof(uint32_t));
-	console_notify(temp);
     
     if (EFI_ERROR (Status)) {
         return Status;

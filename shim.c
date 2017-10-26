@@ -1323,7 +1323,7 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 				console_notify(L"Verification succeeded");
 		}
 	}
-	
+//TPMread	
 	console_notify(L"TPM READ START\n");
 	efi_status = TPM_readPCR();
 	
