@@ -212,75 +212,25 @@ typedef struct {
 
 //TPM2
 
-typedef struct {
-	uint16_t tag;
-	uint32_t paramSize;
-	uint32_t commandCode;
-}TPM2_COMMAND_HEADER;
-
-typedef struct {
-	uint16_t tag;
-	uint32_t paramSize;
-	uint32_t responseCode;
-}TPM2_RESPONSE_HEADER;
-
-#define MAX_PCR 24
-#define PCR_SELECT_MAX ((24 + 7) / 8)
-typedef struct {
-	uint16_t hash;
-	uint8_t sizeofSelect;
-	uint8_t pcrSelect[PCR_SELECT_MAX];
-}TPMS_PCR_SELECTION;
-
-typedef struct {
-	uint32_t count;
-	TPMS_PCR_SELECTION pcrSelections[5];
-}TPML_PCR_SELECTION;
-
-typedef union {
-	uint8_t sha1[20];
-	uint8_t sha256[32];
-	uint8_t sm3_256[32];
-	uint8_t sha384[48];
-	uint8_t sha512[64];
-}TPMU_HA;
-
-typedef struct {
-	UINT16 size;
-	UINT8 buffer[sizeof(TPMU_HA)];
-}TPM2B_DIGEST;
-
-typedef struct {
-	uint16_t size;
-	uint8_t buffer[sizeof(TPMU_HA)];
-}TPM2B_DATA;
-
-typedef struct {
-	uint32_t count;
-	TPM2B_DIGEST digests[8];
-}TPML_DIGEST;
-
-typedef struct {
-	TPM2_COMMAND_HEADER Header;
-	TPML_PCR_SELECTION PcrSelectionIn;
-}__attribute__ ((packed)) TPM2_PCR_READ_COMMAND;
-
-typedef struct {
-	TPM2_RESPONSE_HEADER Header;
-	uint32_t PcrUpdateCounter;
-	TPML_PCR_SELECTION PcrSelectionOut;
-	TPML_DIGEST PcrValues;
-}__attribute__ ((packed))TPM2_PCR_READ_RESPONSE;
-
-typedef struct {
-	uint64_t count;
-	TPML_DIGEST pcr_values[MAX_PCR];
-} tpm2_pcrs;
-
-typedef struct {
-	TPML_PCR_SELECTION pcr_selections;
-	tpm2_pcrs pcrs;
-} pcr_context;
+ // Table 205 - Defines for SHA1 Hash Values
+#define SHA1_DIGEST_SIZE 20
+#define SHA1_BLOCK_SIZE  64
+	    
+// Table 206 - Defines for SHA256 Hash Value
+#define SHA256_DIGEST_SIZE 32
+#define SHA256_BLOCK_SIZE  64
+		        
+// Table 207 - Defines for SHA384 Hash Values
+#define SHA384_DIGEST_SIZE 48
+#define SHA384_BLOCK_SIZE  128
+				    
+// Table 208 - Defines for SHA512 Hash Values
+#define SHA512_DIGEST_SIZE 64
+#define SHA512_BLOCK_SIZE  128
+					        
+// Table 209 - Defines for SM3_256 Hash Values
+#define SM3_256_DIGEST_SIZE 32
+#define SM3_256_BLOCK_SIZE  64
 
 typedef UINT16 TPM_ALG_ID;
 typedef TPM_ALG_ID TPMI_ALG_HASH;
@@ -296,7 +246,64 @@ typedef UINT32 TPM_CC;
 typedef UINT32 TPM_RC;
 #define TPM_RC_SUCCESS           (TPM_RC)(0x000)
 
+#define IMPLEMENTATION_PCR 24
+#define PCR_SELECT_MAX ((IMPLEMENTATION_PCR + 7) / 8)
+typedef UINT8 BYTE;
+//typedef UINT8 BOOL;
 
+#define HASH_COUNT 5
+
+
+typedef struct {
+	TPM_ST tag;
+	UINT32 paramSize;
+	TPM_CC commandCode;
+}TPM2_COMMAND_HEADER;
+
+typedef struct {
+	TPM_ST tag;
+	UINT32 paramSize;
+	TPM_RC responseCode;
+}TPM2_RESPONSE_HEADER;
+
+typedef struct {
+	TPMI_ALG_HASH hash;
+	UINT8 sizeofSelect;
+	BYTE pcrSelect[PCR_SELECT_MAX];
+}TPMS_PCR_SELECTION;
+
+typedef struct {
+	UINT32 count;
+	TPMS_PCR_SELECTION pcrSelections[HASH_COUNT];
+}TPML_PCR_SELECTION;
+
+typedef union {
+	BYTE sha1[SHA1_DIGEST_SIZE];
+	BYTE sha256[SHA256_DIGEST_SIZE];
+	BYTE sm3_256[SM3_256_DIGEST_SIZE];
+	BYTE sha384[SHA384_DIGEST_SIZE];
+	BYTE sha512[SHA512_DIGEST_SIZE];
+}TPMU_HA;
+
+typedef struct {
+	TPMI_ALG_HASH hashAlg;
+	TPMU_HA       digest;
+}TPMT_HA;
+
+typedef struct {
+	UINT16 size;
+	BYTE buffer[sizeof(TPMU_HA)];
+}TPM2B_DIGEST;
+
+typedef struct {
+	UINT16 size;
+	BYTE buffer[sizeof(TPMT_HA)];
+}TPM2B_DATA;
+
+typedef struct {
+	UINT32 count;
+	TPM2B_DIGEST digests[8];
+}TPML_DIGEST;
 
 // prototypes
 EFI_STATUS Tpm2PcrRead ( TPML_PCR_SELECTION *, UINT32 *, TPML_PCR_SELECTION  *, TPML_DIGEST *);

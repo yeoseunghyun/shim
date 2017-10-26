@@ -405,6 +405,32 @@ EFI_STATUS tpm_measure_variable(CHAR16 *VarName, EFI_GUID VendorGuid, UINTN VarS
 }
 
 ///READ PCR///
+#define MAX_PCR 24
+
+typedef struct {
+	UINT64 count;
+	TPML_DIGEST pcr_values[MAX_PCR];
+} tpm2_pcrs;
+
+typedef struct {
+	TPML_PCR_SELECTION pcr_selections;
+	tpm2_pcrs pcrs;
+} pcr_context;
+
+
+#pragma pack(1)
+typedef struct {
+	TPM2_COMMAND_HEADER Header;
+	TPML_PCR_SELECTION PcrSelectionIn;
+}TPM2_PCR_READ_COMMAND;
+
+typedef struct {
+	TPM2_RESPONSE_HEADER Header;
+	uint32_t PcrUpdateCounter;
+	TPML_PCR_SELECTION PcrSelectionOut;
+	TPML_DIGEST PcrValues;
+}TPM2_PCR_READ_RESPONSE;
+#pragma pack()
 
 static uint16_t Swap_Bytes16(UINT16 x){
 	return ((x<<8)|(x>>8));
