@@ -1991,7 +1991,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 		 */
 		if(ImagePath == second_stage){
 			efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
-					datasize, 12, (CHAR8 *)"Grub-second stage");
+					datasize, 17, (CHAR8 *)"Grub-second stage");
 
 			if(efi_status !=  EFI_SUCCESS){
 				console_notify(L"Grub measure failed\n");
