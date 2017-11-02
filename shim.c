@@ -1367,7 +1367,7 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 			CHAR16 msg_t[65];
 			memset(msg_t,0, sizeof(msg_t));
 			
-			TPM_readPCR(6,pcrval);
+			TPM_readPCR(2,pcrval);
 
 			tpm_itochar(pcrval, msg_t, sizeof(pcrval));
 			console_notify(msg_t);
@@ -1861,10 +1861,6 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 	loader_is_participating = 1;
 	in_protocol = 1;
 
-
-	UINT32 pcr_index = 17;
-
-
 	if (!secure_mode())
 		goto done;
 
@@ -1878,7 +1874,7 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 
 	//Measure shim & initrd
 	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)buffer,
-			size, pcr_index, (CHAR8 *)"Kernel+initrd");
+			size, 17, (CHAR8 *)"Kernel+initrd");
 
 	if(status !=  EFI_SUCCESS){
 		console_notify(L"Kernel+initrd measure failed\n");

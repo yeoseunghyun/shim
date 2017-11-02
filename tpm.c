@@ -523,8 +523,8 @@ Show_Pcr_Values( pcr_context *context, UINT32 pcrIndex, UINT8 *pcrval)
 
     for (i = 0; i < context->pcr_selections.count; i++) {
 
-        for ( pcr_id = 0; pcr_id < MAX_PCR; pcr_id++) {
-			if(pcr_id == pcrIndex){
+       // for ( pcr_id = 0; pcr_id < MAX_PCR; pcr_id++) {
+			pcr_id = pcrIndex;
         
 		    if (!Is_PcrSelect_Bit_Set(&context->pcr_selections.pcrSelections[i], pcr_id)) {
                 continue;
@@ -546,8 +546,9 @@ Show_Pcr_Values( pcr_context *context, UINT32 pcrIndex, UINT8 *pcrval)
             if (++vi < context->pcrs.count) {
                 continue;
             }
-    }}
     }
+
+	memcpy(pcrval,result,sizeof(result));
 }
 
 
