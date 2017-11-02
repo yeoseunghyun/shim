@@ -633,41 +633,11 @@ static void update_verification_method(verification_method_t method)
 
 /*PCR verification*/
 
-static EFI_STATUS check_PCR (WIN_CERTIFICATE_EFI_PKCS *cert, UINT8 *pcrval)
-{
-	EFI_GUID secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
-	EFI_GUID shim_var = SHIM_LOCK_GUID;
-
-	if (!ignore_db) {
-		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
-					== DATA_FOUND) {
-			verification_method = VERIFIED_BY_CERT;
-			update_verification_method(VERIFIED_BY_CERT);
-			return EFI_SUCCESS;
-		} else {
-			LogError(L"check_db_cert(db, sha256hash) != DATA_FOUND\n");
-		}
-	}
-
-	if (cert && check_db_cert(L"MokList", shim_var, cert, pcrval) ==
-				DATA_FOUND) {
-		verification_method = VERIFIED_BY_CERT;
-		update_verification_method(VERIFIED_BY_CERT);
-		return EFI_SUCCESS;
-	} else {
-		LogError(L"check_db_cert(MokList, sha256hash) != DATA_FOUND\n");
-	}
-
-	update_verification_method(VERIFIED_BY_NOTHING);
-	return EFI_SECURITY_VIOLATION;
-}
-
-
 /*
  * Check whether the binary signature or hash are present in db or MokList
  */
 static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
-				   UINT8 *sha256hash, UINT8 *sha1hash)
+				   UINT8 *sha256hash, UINT8 *sha1hash, UINT8 *pcrval)
 {
 	EFI_GUID secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
 	EFI_GUID shim_var = SHIM_LOCK_GUID;
@@ -696,6 +666,16 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		} else {
 			LogError(L"check_db_cert(db, sha256hash) != DATA_FOUND\n");
 		}
+	
+		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
+					== DATA_FOUND) {
+			verification_method = VERIFIED_BY_CERT;
+			update_verification_method(VERIFIED_BY_CERT);
+			console_notify(L"PCR Verification Success :)\n");
+			return EFI_SUCCESS;
+		} else {
+			LogError(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
+		}
 	}
 
 	if (check_db_hash(L"MokList", shim_var, sha256hash, SHA256_DIGEST_SIZE,
@@ -713,6 +693,16 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		return EFI_SUCCESS;
 	} else {
 		LogError(L"check_db_cert(MokList, sha256hash) != DATA_FOUND\n");
+	}
+	
+	if (cert && check_db_cert(L"MokList", shim_var, cert, pcrval) ==
+				DATA_FOUND) {
+		verification_method = VERIFIED_BY_CERT;
+		update_verification_method(VERIFIED_BY_CERT);
+		console_notify(L"PCR Verification Success :)\n");
+		return EFI_SUCCESS;
+	} else {
+		LogError(L"check_db_cert(MokList, pcrval) != DATA_FOUND\n");
 	}
 
 	update_verification_method(VERIFIED_BY_NOTHING);
@@ -1119,17 +1109,8 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 
 
 	
-
-
-	/*
-	 * Check whether the binary is whitelisted in any of the firmware
-	 * databases
-	 */
-	status = check_whitelist(cert, sha256hash, sha1hash);
-	if (status != EFI_SUCCESS) {
-		
-		UINT8 pcrval[32];
-		memset(pcrval,0,sizeof(pcrval));
+	UINT8 pcrval[32];
+	memset(pcrval,0,sizeof(pcrval));
 		
 		//TPMread	
 		console_notify(L"TPM READ START\n");
@@ -1146,17 +1127,12 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 			return status;
 		}
 
-		status = check_PCR(cert,pcrval);
-		if(status == EFI_SUCCESS){
-			console_notify(L"PCR VERIFICATION SUCCESS\n");
-			return status;
-		}
-		else{
-       			console_notify(L"PCR VERIFICATION FAIL\n");
-			return status;
-		}
-	}
-	else {
+	/*
+	 * Check whether the binary is whitelisted in any of the firmware
+	 * databases
+	 */
+	status = check_whitelist(cert, sha256hash, sha1hash, pcrval);
+	if (status == EFI_SUCCESS) {
 		drain_openssl_errors();
 		return status;
 	}
