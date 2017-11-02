@@ -1117,22 +1117,30 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		return status;
 	}
 
+
+	
+
+
 	/*
 	 * Check whether the binary is whitelisted in any of the firmware
 	 * databases
 	 */
 	status = check_whitelist(cert, sha256hash, sha1hash);
-	if (status == EFI_SUCCESS) {
-		drain_openssl_errors();
-		return status;
-	} else {
+	if (status != EFI_SUCCESS) {
+		
 		UINT8 pcrval[32];
 		memset(pcrval,0,sizeof(pcrval));
 		
 		//TPMread	
 		console_notify(L"TPM READ START\n");
-		status = TPM_readPCR(12,pcrval);
-	
+		status = TPM_readPCR(17,pcrval);
+		
+		CHAR16 msg_out[65];
+		memset(msg_out,0, sizeof(msg_out));
+
+		tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+		console_notify(msg_out);
+		
 		if(status != EFI_SUCCESS){
 			console_notify(L"TPM_READ FAIL\n");
 			return status;
@@ -1144,9 +1152,13 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 			return status;
 		}
 		else{
-			 console_notify(L"PCR VERIFICATION FAIL\n");
-			 return status;
+       			console_notify(L"PCR VERIFICATION FAIL\n");
+			return status;
 		}
+	}
+	else {
+		drain_openssl_errors();
+		return status;
 	}
 
 	if (cert) {
@@ -1861,6 +1873,8 @@ error:
  * Protocol entry point. If secure boot is enabled, verify that the provided
  * buffer is signed with a trusted key.
  */
+
+
 EFI_STATUS shim_verify (void *buffer, UINT32 size)
 {
 	EFI_STATUS status = EFI_SUCCESS;
@@ -1870,6 +1884,10 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 
 	loader_is_participating = 1;
 	in_protocol = 1;
+
+
+	UINT32 pcr_index = 17;
+
 
 	if (!secure_mode())
 		goto done;
@@ -1881,6 +1899,16 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 	status = generate_hash(buffer, size, &context, sha256hash, sha1hash);
 	if (status != EFI_SUCCESS)
 		goto done;
+
+	//Measure shim & initrd
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)buffer,
+			size, pcr_index, (CHAR8 *)"Kernel+initrd");
+
+	if(status !=  EFI_SUCCESS){
+		console_notify(L"Kernel+initrd measure failed\n");
+		goto done;
+	}
+
 
 	status = verify_buffer(buffer, size, &context, sha256hash, sha1hash);
 done:
@@ -1991,7 +2019,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 		 */
 		if(ImagePath == second_stage){
 			efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
-					datasize, 17, (CHAR8 *)"Grub-second stage");
+					datasize, 12, (CHAR8 *)"Grub-second stage");
 
 			if(efi_status !=  EFI_SUCCESS){
 				console_notify(L"Grub measure failed\n");
