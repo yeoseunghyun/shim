@@ -674,6 +674,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 			console_notify(L"PCR Verification Success :)\n");
 			return EFI_SUCCESS;
 		} else {
+			console_notify(L"PCR Verification Fail\n");
 			LogError(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
 		}
 	}
@@ -1048,6 +1049,15 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	unsigned int size = datasize;
 	EFI_GUID shim_var = SHIM_LOCK_GUID;
 
+	//Measure shim & initrd
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
+			datasize, 8, (CHAR8 *)"Kernel+initrd");
+
+	if(status !=  EFI_SUCCESS){
+		console_notify(L"Kernel+initrd measure failed\n");
+		return status;
+	}
+
 	if (context->SecDir->Size != 0) {
 		if (context->SecDir->Size >= size) {
 			perror(L"Certificate Database size is too large\n");
@@ -1114,7 +1124,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		
 		//TPMread	
 		console_notify(L"TPM READ START\n");
-		status = TPM_readPCR(17,pcrval);
+		status = TPM_readPCR(8,pcrval);
 		
 		CHAR16 msg_out[65];
 		memset(msg_out,0, sizeof(msg_out));
@@ -1361,16 +1371,6 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 		} else {
 			if (verbose)
 				console_notify(L"Verification succeeded");
-		
-			UINT8 pcrval[32];
-			memset(pcrval,0,sizeof(pcrval));
-			CHAR16 msg_t[65];
-			memset(msg_t,0, sizeof(msg_t));
-			
-			TPM_readPCR(2,pcrval);
-
-			tpm_itochar(pcrval, msg_t, sizeof(pcrval));
-			console_notify(msg_t);
 		}
 	}
 	/* The spec says, uselessly, of SectionAlignment:
@@ -1872,14 +1872,6 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 	if (status != EFI_SUCCESS)
 		goto done;
 
-	//Measure shim & initrd
-	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)buffer,
-			size, 17, (CHAR8 *)"Kernel+initrd");
-
-	if(status !=  EFI_SUCCESS){
-		console_notify(L"Kernel+initrd measure failed\n");
-		goto done;
-	}
 
 
 	status = verify_buffer(buffer, size, &context, sha256hash, sha1hash);
@@ -1988,7 +1980,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 
 		/*
 		 * Measure Loaded data of Grub
-		 */
+		 
 		if(ImagePath == second_stage){
 			efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
 					datasize, 12, (CHAR8 *)"Grub-second stage");
@@ -2000,7 +1992,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 				ClearErrors();
 				goto done;
 			}
-		}
+		}*/
 	}
 
 	/*

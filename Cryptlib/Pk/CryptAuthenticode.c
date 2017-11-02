@@ -187,7 +187,18 @@ AuthenticodeVerify (
    * solve this 
    */
   if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
-      	  //
+      	  
+	  CHAR16 msg_out[65]; 
+	  memset(msg_out,0, sizeof(msg_out));
+	  tpm_itochar(SpcIndirectDataContent + ContentSize - HashSize, msg_out,HashSize);
+	  console_notify(L"image:\n");
+	  console_notify(msg_out); 
+	  
+	  memset(msg_out,0, sizeof(msg_out));
+	  tpm_itochar(ImageHash, msg_out,HashSize );
+	  console_notify(L"hash:\n");
+	  console_notify(msg_out);
+	  //
       	  // Un-matched PE/COFF Hash Value
       	  //
       	  goto _Exit;
