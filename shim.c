@@ -666,7 +666,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		} else {
 			LogError(L"check_db_cert(db, sha256hash) != DATA_FOUND\n");
 		}
-	
+/*	
 		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
 					== DATA_FOUND) {
 			verification_method = VERIFIED_BY_CERT;
@@ -676,7 +676,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		} else {
 			console_notify(L"PCR Verification Fail\n");
 			LogError(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
-		}
+		}*/
 	}
 
 	if (check_db_hash(L"MokList", shim_var, sha256hash, SHA256_DIGEST_SIZE,
@@ -1049,14 +1049,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	unsigned int size = datasize;
 	EFI_GUID shim_var = SHIM_LOCK_GUID;
 
-	//Measure shim & initrd
-	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
-			datasize, 8, (CHAR8 *)"Kernel+initrd");
-
-	if(status !=  EFI_SUCCESS){
-		console_notify(L"Kernel+initrd measure failed\n");
-		return status;
-	}
+	
 
 	if (context->SecDir->Size != 0) {
 		if (context->SecDir->Size >= size) {
@@ -1124,7 +1117,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 		
 		//TPMread	
 		console_notify(L"TPM READ START\n");
-		status = TPM_readPCR(8,pcrval);
+		status = TPM_readPCR(13,pcrval);
 		
 		CHAR16 msg_out[65];
 		memset(msg_out,0, sizeof(msg_out));
@@ -1371,6 +1364,24 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 		} else {
 			if (verbose)
 				console_notify(L"Verification succeeded");
+UINT8 pcrval[32];
+	memset(pcrval,0,sizeof(pcrval));
+		
+		//TPMread	
+		console_notify(L"TPM READ START\n");
+		efi_status = TPM_readPCR(1,pcrval);
+		
+		CHAR16 msg_out[65];
+		memset(msg_out,0, sizeof(msg_out));
+
+		tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+		console_notify(msg_out);
+		
+		if(efi_status != EFI_SUCCESS){
+			console_notify(L"TPM_READ FAIL\n");
+			return efi_status;
+		}
+
 		}
 	}
 	/* The spec says, uselessly, of SectionAlignment:
@@ -1872,7 +1883,14 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 	if (status != EFI_SUCCESS)
 		goto done;
 
+//Measure shim & initrd
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)buffer,
+			size-1841, 13, (CHAR8 *)"Kernel+initrd");
 
+	if(status !=  EFI_SUCCESS){
+		console_notify(L"Kernel+initrd measure failed\n");
+		return status;
+	}
 
 	status = verify_buffer(buffer, size, &context, sha256hash, sha1hash);
 done:
