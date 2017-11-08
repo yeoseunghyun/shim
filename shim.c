@@ -1884,7 +1884,7 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 		goto done;
 
 //Measure shim & initrd
-	status = tpm_log_event(context->ImageAddress, context->SecDir->VirtualAddress, 13, (CHAR8 *)"Kernel+initrd");
+	status = tpm_log_event(buffer, context->SecDir->VirtualAddress, 13, (CHAR8 *)"Kernel+initrd");
 
 	if(status !=  EFI_SUCCESS){
 		console_notify(L"Kernel+initrd measure failed\n");
