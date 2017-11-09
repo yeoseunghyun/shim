@@ -666,7 +666,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		} else {
 			LogError(L"check_db_cert(db, sha256hash) != DATA_FOUND\n");
 		}
-/*	
+	
 		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
 					== DATA_FOUND) {
 			verification_method = VERIFIED_BY_CERT;
@@ -676,7 +676,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		} else {
 			console_notify(L"PCR Verification Fail\n");
 			LogError(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
-		}*/
+		}
 	}
 
 	if (check_db_hash(L"MokList", shim_var, sha256hash, SHA256_DIGEST_SIZE,
