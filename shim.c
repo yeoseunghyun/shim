@@ -1111,24 +1111,17 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	}
 
 
-	
+//TPM verification added	
 	UINT8 pcrval[32];
 	memset(pcrval,0,sizeof(pcrval));
-		
-		//TPMread	
-		console_notify(L"TPM READ START\n");
-		status = TPM_readPCR(13,pcrval);
-		
-		CHAR16 msg_out[65];
-		memset(msg_out,0, sizeof(msg_out));
 
-		tpm_itochar(pcrval, msg_out, sizeof(pcrval));
-		console_notify(msg_out);
-		
-		if(status != EFI_SUCCESS){
-			console_notify(L"TPM_READ FAIL\n");
-			return status;
-		}
+	console_notify(L"TPM READ START\n");
+	status = TPM_readPCR(13,pcrval);
+
+	if(status != EFI_SUCCESS){
+		console_notify(L"TPM_READ FAIL\n");
+		return status;
+	}
 
 	/*
 	 * Check whether the binary is whitelisted in any of the firmware
@@ -1995,7 +1988,6 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 			goto done;
 		} 
 
-		/*
 		 * Measure Loaded data of Grub
 		 
 		if(ImagePath == second_stage){
@@ -2009,7 +2001,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 				ClearErrors();
 				goto done;
 			}
-		}*/
+		}
 	}
 
 	/*

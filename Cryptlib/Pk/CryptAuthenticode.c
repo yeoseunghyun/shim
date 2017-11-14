@@ -182,22 +182,9 @@ AuthenticodeVerify (
   // NOTE: Need to double-check HashLength here!
   //
   /*
-   * PCR vericication added 
-   * however pcr verification only performed as sha1 length
-   * solve this 
+   * PCR vericication added // in TPM 2.0 uses SHA256 so it uses same size as others 
    */
   if (CompareMem (SpcIndirectDataContent + ContentSize - HashSize, ImageHash, HashSize) != 0) {
-      	  
-	  CHAR16 msg_out[65]; 
-	  memset(msg_out,0, sizeof(msg_out));
-	  tpm_itochar(SpcIndirectDataContent + ContentSize - HashSize, msg_out,HashSize);
-	  console_notify(L"image:\n");
-	  console_notify(msg_out); 
-	  
-	  memset(msg_out,0, sizeof(msg_out));
-	  tpm_itochar(ImageHash, msg_out,HashSize );
-	  console_notify(L"hash:\n");
-	  console_notify(msg_out);
 	  //
       	  // Un-matched PE/COFF Hash Value
       	  //
