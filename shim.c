@@ -1988,7 +1988,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 			goto done;
 		} 
 
-		 * Measure Loaded data of Grub
+		 /* Measure Loaded data of Grubi*/
 		 
 		if(ImagePath == second_stage){
 			efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
