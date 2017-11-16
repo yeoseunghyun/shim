@@ -252,7 +252,6 @@ typedef UINT8 BYTE;
 //typedef UINT8 BOOL;
 
 #define HASH_COUNT 5
-#define KERNEL_HEADER_SIZE 224;
 
 typedef struct {
 	TPM_ST tag;
