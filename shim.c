@@ -1111,13 +1111,19 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	}
 
 
-//TPM verification added	
+	//TPM verification added	
 	UINT8 pcrval[32];
 	memset(pcrval,0,sizeof(pcrval));
 
 	console_notify(L"TPM READ START\n");
-	status = TPM_readPCR(13,pcrval);
+	status = TPM_readPCR(12,pcrval);
 
+	CHAR16 msg_out[65];
+	memset(msg_out,0, sizeof(msg_out));
+
+	tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	console_notify(msg_out);
+		
 	if(status != EFI_SUCCESS){
 		console_notify(L"TPM_READ FAIL\n");
 		return status;
@@ -1876,8 +1882,8 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 	if (status != EFI_SUCCESS)
 		goto done;
 
-//Measure shim & initrd
-	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)buffer+224,0x006c39f0-0xe0, 13, (CHAR8 *)"Kernel+initrd");
+	//Measure shim & initrd
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)buffer+224,0x6C3910, 12, (CHAR8 *)"Kernel+initrd");
 
 	if(status !=  EFI_SUCCESS){
 		console_notify(L"Kernel+initrd measure failed\n");
