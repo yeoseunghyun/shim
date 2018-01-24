@@ -640,7 +640,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 				   UINT8 *sha256hash, UINT8 *sha1hash, UINT8 *pcrval)
 {
 	EFI_GUID secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
-	EFI_GUID shim_var = SHIM_LOCK_GUID;
+	//EFI_GUID shim_var = SHIM_LOCK_GUID;
 
 	if (!ignore_db) {
 		if (check_db_hash(L"db", secure_var, sha256hash, SHA256_DIGEST_SIZE,
@@ -678,7 +678,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 			LogError(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
 		}
 	}
-
+/*
 	if (check_db_hash(L"MokList", shim_var, sha256hash, SHA256_DIGEST_SIZE,
 			  EFI_CERT_SHA256_GUID) == DATA_FOUND) {
 		verification_method = VERIFIED_BY_HASH;
@@ -703,9 +703,11 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 		console_notify(L"PCR Verification Success :)\n");
 		return EFI_SUCCESS;
 	} else {
-		LogError(L"check_db_cert(MokList, pcrval) != DATA_FOUND\n");
-	}
+		console_notify(L"PCR Verification Fail\n");
+		LogError(L"check_db_cert(MoKList, pcrval) != DATA_FOUND\n");
 
+	}
+*/
 	update_verification_method(VERIFIED_BY_NOTHING);
 	return EFI_SECURITY_VIOLATION;
 }
@@ -1363,24 +1365,6 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
 		} else {
 			if (verbose)
 				console_notify(L"Verification succeeded");
-UINT8 pcrval[32];
-	memset(pcrval,0,sizeof(pcrval));
-		
-		//TPMread	
-		console_notify(L"TPM READ START\n");
-		efi_status = TPM_readPCR(1,pcrval);
-		
-		CHAR16 msg_out[65];
-		memset(msg_out,0, sizeof(msg_out));
-
-		tpm_itochar(pcrval, msg_out, sizeof(pcrval));
-		console_notify(msg_out);
-		
-		if(efi_status != EFI_SUCCESS){
-			console_notify(L"TPM_READ FAIL\n");
-			return efi_status;
-		}
-
 		}
 	}
 	/* The spec says, uselessly, of SectionAlignment:
@@ -1813,6 +1797,10 @@ static EFI_STATUS load_image (EFI_LOADED_IMAGE *li, void **data,
 
 	buffersize = fileinfo->FileSize;
 
+	if(buffersize == 615216){
+		console_notify(L"Buffer size is Correct\n");
+		console_notify(fileinfo->FileName);
+	}
 	*data = AllocatePool(buffersize);
 
 	if (!*data) {
@@ -1838,8 +1826,52 @@ static EFI_STATUS load_image (EFI_LOADED_IMAGE *li, void **data,
 		perror(L"Unexpected return from initial read: %r, buffersize %x\n", efi_status, buffersize);
 		goto error;
 	}
-
 	*datasize = buffersize;
+	
+	//FOR EXTEND TESTING
+	UINT8 pcrval[32];
+	memset(pcrval,0,sizeof(pcrval));
+
+	console_notify(L"before grub 12 READ START\n");
+	efi_status = TPM_readPCR(12,pcrval);
+
+	CHAR16 msg_out[65];
+	memset(msg_out,0, sizeof(msg_out));
+
+	tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	console_notify(msg_out);
+		
+	if(efi_status != EFI_SUCCESS){
+		console_notify(L"TPM_READ FAIL\n");
+		return efi_status;
+	}
+
+	efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)*data,
+		       	buffersize, 12, (CHAR8*)"GRUB");
+		
+	if(efi_status !=  EFI_SUCCESS){
+		console_notify(L"init measure failed\n");
+		perror(L"Fail to measure Grub: %r\n",efi_status);
+		PrintErrors();
+		ClearErrors();
+	}
+	
+	//TESTING	
+	memset(pcrval,0,sizeof(pcrval));
+
+	console_notify(L"after grub 12 READ START\n");
+	efi_status = TPM_readPCR(12,pcrval);
+
+	memset(msg_out,0, sizeof(msg_out));
+
+	tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	console_notify(msg_out);
+		
+	if(efi_status != EFI_SUCCESS){
+		console_notify(L"TPM_READ FAIL\n");
+		return efi_status;
+	}
+
 
 	FreePool(fileinfo);
 
@@ -1881,13 +1913,45 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 	status = generate_hash(buffer, size, &context, sha256hash, sha1hash);
 	if (status != EFI_SUCCESS)
 		goto done;
+	//TESTING	
+	UINT8 pcrval[32];
+	memset(pcrval,0,sizeof(pcrval));
 
+	console_notify(L"before kernel 12 READ START\n");
+	status = TPM_readPCR(12,pcrval);
+
+	CHAR16 msg_out[65];
+	memset(msg_out,0, sizeof(msg_out));
+
+	tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	console_notify(msg_out);
+		
+	if(status != EFI_SUCCESS){
+		console_notify(L"TPM_READ FAIL\n");
+		return status;
+	}
 	//Measure shim & initrd
-	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)(buffer+context->SizeOfHeaders),
-						context->SizeOfCode, 12, (CHAR8 *)"Kernel+initrd");
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)(buffer+0x200),
+						0x6c6470, 12, (CHAR8 *)"Kernel+initrd");
 
 	if(status !=  EFI_SUCCESS){
 		console_notify(L"Kernel+initrd measure failed\n");
+		return status;
+	}
+	
+
+	memset(pcrval,0,sizeof(pcrval));
+
+	console_notify(L"after kernel 12 READ START\n");
+	status = TPM_readPCR(12,pcrval);
+
+	memset(msg_out,0, sizeof(msg_out));
+
+	tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	console_notify(msg_out);
+		
+	if(status != EFI_SUCCESS){
+		console_notify(L"TPM_READ FAIL\n");
 		return status;
 	}
 
@@ -1996,10 +2060,38 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 		} 
 
 		 /* Measure Loaded data of Grubi*/
-		 
+		 /*
 		if(ImagePath == second_stage){
+			//FOR EXTEND TESTING 
+			UINT8 pcrval[32];
+			memset(pcrval,0,sizeof(pcrval));
+		
+			console_notify(L"GRUB EXTEND TEST START\n");
+			efi_status = TPM_readPCR(13,pcrval);
+			CHAR16 msg_out[65];
+			memset(msg_out,0, sizeof(msg_out));
+			
+			tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+			console_notify(msg_out);
+			
+			if(efi_status != EFI_SUCCESS){
+				console_notify(L"TPM_READ FAIL\n");
+				return efi_status;
+			}
+		
 			efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)data,
-					datasize, 12, (CHAR8 *)"Grub-second stage");
+					datasize, 13, (CHAR8 *)"Grub-second stage");
+		
+	       		memset(pcrval,0,sizeof(pcrval));
+	      		memset(msg_out,0, sizeof(msg_out));
+	     		efi_status = TPM_readPCR(13,pcrval);
+	    		tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	  		console_notify(msg_out);
+	 		if(efi_status != EFI_SUCCESS){ 
+	 			console_notify(L"TPM_READ FAIL\n");
+				return efi_status;
+			}
+	 		console_notify(L"EXTEND TEST DONE");
 
 			if(efi_status !=  EFI_SUCCESS){
 				console_notify(L"Grub measure failed\n");
@@ -2008,7 +2100,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
 				ClearErrors();
 				goto done;
 			}
-		}
+		}*/
 	}
 
 	/*
