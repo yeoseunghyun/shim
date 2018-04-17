@@ -1213,6 +1213,7 @@ static EFI_STATUS read_header(void *data, unsigned int datasize,
 	if (image_is_64_bit(PEHdr)) {
 		context->NumberOfRvaAndSizes = PEHdr->Pe32Plus.OptionalHeader.NumberOfRvaAndSizes;
 		context->SizeOfHeaders = PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
+		context->SizeOfCode = PEHdr->Pe32Plus.OptionalHeader.SizeOfCode;
 		context->ImageSize = PEHdr->Pe32Plus.OptionalHeader.SizeOfImage;
 		context->SectionAlignment = PEHdr->Pe32Plus.OptionalHeader.SectionAlignment;
 		FileAlignment = PEHdr->Pe32Plus.OptionalHeader.FileAlignment;
@@ -1220,6 +1221,7 @@ static EFI_STATUS read_header(void *data, unsigned int datasize,
 	} else {
 		context->NumberOfRvaAndSizes = PEHdr->Pe32.OptionalHeader.NumberOfRvaAndSizes;
 		context->SizeOfHeaders = PEHdr->Pe32.OptionalHeader.SizeOfHeaders;
+		context->SizeOfCode = PEHdr->Pe32.OptionalHeader.SizeOfCode;
 		context->ImageSize = (UINT64)PEHdr->Pe32.OptionalHeader.SizeOfImage;
 		context->SectionAlignment = PEHdr->Pe32.OptionalHeader.SectionAlignment;
 		FileAlignment = PEHdr->Pe32.OptionalHeader.FileAlignment;
@@ -1847,6 +1849,15 @@ static EFI_STATUS load_image (EFI_LOADED_IMAGE *li, void **data,
 	}
 
 	efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)*data,
+		       	buffersize, 10, (CHAR8*)"GRUB");
+		
+	if(efi_status !=  EFI_SUCCESS){
+		console_notify(L"init measure failed\n");
+		perror(L"Fail to measure Grub: %r\n",efi_status);
+		PrintErrors();
+		ClearErrors();
+	}
+	efi_status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)*data,
 		       	buffersize, 12, (CHAR8*)"GRUB");
 		
 	if(efi_status !=  EFI_SUCCESS){
@@ -1930,9 +1941,18 @@ EFI_STATUS shim_verify (void *buffer, UINT32 size)
 		console_notify(L"TPM_READ FAIL\n");
 		return status;
 	}
+	
+
 	//Measure shim & initrd
-	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)(buffer+0x200),
-						0x6c6470, 12, (CHAR8 *)"Kernel+initrd");
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)(buffer+(context.SizeOfHeaders)),
+					context.SizeOfCode, 11, (CHAR8 *)"Kernel+initrd");
+
+	if(status !=  EFI_SUCCESS){
+		console_notify(L"Kernel+initrd measure failed\n");
+		return status;
+	}
+	status = tpm_log_event((EFI_PHYSICAL_ADDRESS)(UINTN)(buffer+(context.SizeOfHeaders)),
+					context.SizeOfCode, 12, (CHAR8 *)"Kernel+initrd");
 
 	if(status !=  EFI_SUCCESS){
 		console_notify(L"Kernel+initrd measure failed\n");

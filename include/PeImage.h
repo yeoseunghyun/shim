@@ -776,6 +776,7 @@ typedef struct {
 	UINT64 ImageSize;
 	UINT64 EntryPoint;
 	UINTN SizeOfHeaders;
+	UINTN SizeOfCode;
 	UINT16 ImageType;
 	UINT16 NumberOfSections;
 	UINT32 SectionAlignment;
