@@ -447,17 +447,19 @@ static CHECK_STATUS check_db_cert_in_ram(EFI_SIGNATURE_LIST *CertList,
 			CertSize = CertList->SignatureSize - sizeof(EFI_GUID);
 			if (verify_x509(Cert->SignatureData, CertSize)) {
 				if (verify_eku(Cert->SignatureData, CertSize)) {
+					console_notify(L"testing in check_db_cert_in_ram");
 					IsFound = AuthenticodeVerify (data->CertData,
 								      data->Hdr.dwLength - sizeof(data->Hdr),
 								      Cert->SignatureData,
 								      CertSize,
 								      hash, SHA256_DIGEST_SIZE);
 					if (IsFound) {
+						console_notify(L"FOUND!!!:) by yeo14");
 						tpm_measure_variable(dbname, guid, CertSize, Cert->SignatureData);
 						return DATA_FOUND;
 						drain_openssl_errors();
 					} else {
-						LogError(L"AuthenticodeVerify(): %d\n", IsFound);
+						console_notify(L"AuthenticodeVerify() return 0 by yeo14");
 					}
 				}
 			} else if (verbose) {
@@ -513,7 +515,7 @@ static CHECK_STATUS check_db_hash_in_ram(EFI_SIGNATURE_LIST *CertList,
 			for (Index = 0; Index < CertCount; Index++) {
 				if (CompareMem (Cert->SignatureData, data, SignatureSize) == 0) {
 					//
-					// Find the signature in database.
+					console_notify(L"Find the signature in database. by yeo14");
 					//
 					IsFound = TRUE;
 					tpm_measure_variable(dbname, guid, SignatureSize, data);
@@ -648,7 +650,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 			update_verification_method(VERIFIED_BY_HASH);
 			return EFI_SUCCESS;
 		} else {
-			LogError(L"check_db_hash(db, sha256hash) != DATA_FOUND\n");
+			console_notify(L"check_db_hash(db, sha256hash) != DATA_FOUND by yeo14");
 		}
 		if (check_db_hash(L"db", secure_var, sha1hash, SHA1_DIGEST_SIZE,
 					EFI_CERT_SHA1_GUID) == DATA_FOUND) {
@@ -656,7 +658,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 			update_verification_method(VERIFIED_BY_HASH);
 			return EFI_SUCCESS;
 		} else {
-			LogError(L"check_db_hash(db, sha1hash) != DATA_FOUND\n");
+			console_notify(L"check_db_hash(db, sha1hash) != DATA_FOUND by yeo14");
 		}
 		if (cert && check_db_cert(L"db", secure_var, cert, sha256hash)
 					== DATA_FOUND) {
@@ -664,7 +666,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 			update_verification_method(VERIFIED_BY_CERT);
 			return EFI_SUCCESS;
 		} else {
-			LogError(L"check_db_cert(db, sha256hash) != DATA_FOUND\n");
+			console_notify(L"check_db_cert(db, sha256hash) != DATA_FOUND by yeo14");
 		}
 	
 		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
@@ -675,7 +677,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 			return EFI_SUCCESS;
 		} else {
 			console_notify(L"PCR Verification Fail\n");
-			LogError(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
+			console_notify(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
 		}
 	}
 /*
@@ -1135,6 +1137,17 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
 	 * Check whether the binary is whitelisted in any of the firmware
 	 * databases
 	 */
+
+	/*
+	 * modified by seung hyun
+	 */
+	memset(pcrval,0,sizeof(pcrval));
+	memset(msg_out,0,sizeof(msg_out));
+	tpm_itochar(pcrval, msg_out, sizeof(pcrval));
+	console_notify(msg_out);
+
+	console_notify(L"");
+
 	status = check_whitelist(cert, sha256hash, sha1hash, pcrval);
 	if (status == EFI_SUCCESS) {
 		drain_openssl_errors();
