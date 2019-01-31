@@ -459,7 +459,7 @@ static CHECK_STATUS check_db_cert_in_ram(EFI_SIGNATURE_LIST *CertList,
 						return DATA_FOUND;
 						drain_openssl_errors();
 					} else {
-						console_notify(L"AuthenticodeVerify() return 0 by yeo14");
+						console_notify(L"FAIL in AuthenticodeVerify() by yeo14");
 					}
 				}
 			} else if (verbose) {
@@ -645,39 +645,51 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
 	//EFI_GUID shim_var = SHIM_LOCK_GUID;
 
 	if (!ignore_db) {
+		console_notify(L"try check_db_hash sha256hash by yeo14");
 		if (check_db_hash(L"db", secure_var, sha256hash, SHA256_DIGEST_SIZE,
 					EFI_CERT_SHA256_GUID) == DATA_FOUND) {
+
+		console_notify(L"SUCCESS check_db_hash sha256hash by yeo14");
 			update_verification_method(VERIFIED_BY_HASH);
 			return EFI_SUCCESS;
 		} else {
 			console_notify(L"check_db_hash(db, sha256hash) != DATA_FOUND by yeo14");
 		}
+
+		console_notify(L"try check_db_hash sha1hash by yeo14");
 		if (check_db_hash(L"db", secure_var, sha1hash, SHA1_DIGEST_SIZE,
 					EFI_CERT_SHA1_GUID) == DATA_FOUND) {
+
+		console_notify(L"SUCCESS check_db_cert sha1hash by yeo14");
 			verification_method = VERIFIED_BY_HASH;
 			update_verification_method(VERIFIED_BY_HASH);
 			return EFI_SUCCESS;
 		} else {
 			console_notify(L"check_db_hash(db, sha1hash) != DATA_FOUND by yeo14");
 		}
+
+		console_notify(L"try cert&&check_db_cert sha256hash by yeo14");
 		if (cert && check_db_cert(L"db", secure_var, cert, sha256hash)
 					== DATA_FOUND) {
+
+		console_notify(L"SUCCESS cert&&check_db_cert sha256hash by yeo14");
 			verification_method = VERIFIED_BY_CERT;
 			update_verification_method(VERIFIED_BY_CERT);
 			return EFI_SUCCESS;
 		} else {
 			console_notify(L"check_db_cert(db, sha256hash) != DATA_FOUND by yeo14");
 		}
-	
+
+		console_notify(L"try cert&&check_db_cert pcrval by yeo14");
 		if (cert && check_db_cert(L"db", secure_var, cert, pcrval )
 					== DATA_FOUND) {
 			verification_method = VERIFIED_BY_CERT;
 			update_verification_method(VERIFIED_BY_CERT);
-			console_notify(L"PCR Verification Success :)\n");
+			console_notify(L"PCR Verification Success :) by yeo14");
 			return EFI_SUCCESS;
 		} else {
 			console_notify(L"PCR Verification Fail\n");
-			console_notify(L"check_db_cert(db, pcrval) != DATA_FOUND\n");
+			console_notify(L"check_db_cert(db, pcrval) != DATA_FOUND by yeo14");
 		}
 	}
 /*
